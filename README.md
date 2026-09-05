@@ -2,9 +2,14 @@
 
 轻量的中文菜谱管理网页，使用原生 JavaScript、CSS 和 Vite。
 
-**线上地址：https://ricardo121380.github.io/shiji-recipe/**
+**线上地址（双线路）：**
 
-源码托管在 GitHub（[Ricardo121380/shiji-recipe](https://github.com/Ricardo121380/shiji-recipe)），推送 main 分支后由 GitHub Actions 自动构建并发布到 GitHub Pages。
+- GitHub Pages：https://ricardo121380.github.io/shiji-recipe/
+- Cloudflare Pages：https://shiji-recipe.pages.dev/
+
+GitHub Pages 由 GitHub Actions 在每次推送 main 后自动构建发布；Cloudflare Pages 线路需要手动执行 `npm run deploy` 更新（内容完全一致，可作为备用线路）。
+
+源码托管在 GitHub（[Ricardo121380/shiji-recipe](https://github.com/Ricardo121380/shiji-recipe)）。
 
 ## 启动
 
