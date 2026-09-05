@@ -32,10 +32,10 @@ else if(r==='#/journal')renderJournal(view);
 else if(r==='#/health')renderHealth(view);
 else if(r==='#/recommend')renderRecommend(view);
 else if(r==='#/daily')renderDaily(view);
-document.querySelector('#export').onclick=exportBackup;
-document.querySelector('#import').onclick=importBackup;
-document.querySelector('#cats').onclick=()=>openSettings();
-document.querySelector('#notify').onclick=()=>{showReminders();requestNotify()}}
+(document.querySelector('#export')??document.createElement('button')).onclick=exportBackup;
+(document.querySelector('#import')??document.createElement('button')).onclick=importBackup;
+(document.querySelector('#cats')??document.createElement('button')).onclick=()=>openSettings();
+(document.querySelector('#notify')??document.createElement('button')).onclick=()=>{showReminders();requestNotify()}}
 
 function prepBellCount(){return prepUpcoming(2).length}
 
