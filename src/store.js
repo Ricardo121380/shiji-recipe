@@ -119,7 +119,9 @@ export function restoreDeducted(recs){for(const rec of recs||[]){const p=S.pantr
 // —— 周菜单 / 点菜 ——
 export function menuItems(date,meal){return(S.menu[date]?.[meal])||[]}
 export function addToMenu(date,meal,ref,qty=1,specs={},note=''){if(!S.menu[date])S.menu[date]={};(S.menu[date][meal]=S.menu[date][meal]||[]).push({refType:ref.type==='dining'?'dining':'recipe',refId:ref.id,name:ref.name,done:false,qty,specs,note,deducted:[]})}
-export function removeMenuItem(date,meal,idx){S.menu[date]?.[meal]?.splice(idx,1)}
+export function removeMenuItem(date,meal,idx){const it=menuItems(date,meal)[idx];if(!it)return;
+if(it.done){restoreDeducted(it.deducted);it.deducted=[];if(S.log[date]){S.log[date]=S.log[date].filter(e=>!(e.refId===it.refId&&e.name===it.name&&e.meal===meal));if(!S.log[date].length)delete S.log[date]}}
+S.menu[date]?.[meal]?.splice(idx,1)}
 export function changeItemQty(date,meal,idx,delta){const it=menuItems(date,meal)[idx];if(!it)return;it.qty=Math.max(1,(Number(it.qty)||1)+delta)}
 
 // 勾选「已吃」→ 记录 + 扣库存；取消 → 撤销记录 + 回补库存
