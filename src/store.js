@@ -143,10 +143,10 @@ export function generateShopping(){const start=mondayOf(today());const need={};
 for(let i=0;i<14;i++){const d=addDays(start,i);for(const[m]of MEALS)for(const item of menuItems(d,m)){if(item.done)continue;const r=refOf(item);if(!r||r.type==='dining')continue;
 for(const ing of r.ingredients||[]){const k=ing.name.trim();if(!k)continue;if(!need[k])need[k]={name:k,infos:[],texts:[]};const a=String(ing.amount||'').trim();if(!a)continue;const info=parseAmountInfo(a);if(info)need[k].infos.push({...info,factor:item.qty||1});else need[k].texts.push(a)}}}
 return Object.values(need).map(x=>{let amount='';
-if(x.infos.length){const byUnit={};for(const{num,unit,factor}of x.infos)byUnit[unit||'']=(byUnit[unit||'']||0)+num*factor;const parts=[];for(const[unit,num]of Object.entries(byUnit)){const stock=S.pantry.filter(p=>p.kind==='ingredient'&&nameMatch(p.name,x.name)&&(!unit||unitMatch(p.unit,unit))).reduce((n,p)=>n+(Number(p.qty)||0),0);const lack=Math.round((num-stock)*10)/10;parts.push(lack>0?`约差 ${lack}${unit}`:null)}const real=parts.filter(Boolean);amount=real.length?real.join(' + '):'库存充足'}
+if(x.infos.length){const byUnit={};for(const{num,unit,factor}of x.infos)byUnit[unit||'']=(byUnit[unit||'']||0)+num*factor;const parts=[];for(const[unit,num]of Object.entries(byUnit)){const stock=S.pantry.filter(p=>p.kind==='ingredient'&&nameMatch(p.name,x.name)&&(!unit||unitMatch(p.unit,unit))).reduce((n,p)=>n+(Number(p.qty)||0),0);const lack=Math.round((num-stock)*10)/10;parts.push(lack>0?`约差 ${lack}${unit}`:null)}const real=parts.filter(Boolean);if(!real.length)return null;amount=real.join(' + ')}
 else if(x.texts.length)amount=x.texts.join(' / ');
 else amount='按需购买';
-const pm=pantryMatches(x.name)[0];return{name:x.name,amount,category:pm?pm.category:'',board:'food'}})}
+const pm=pantryMatches(x.name)[0];return{name:x.name,amount,category:pm?pm.category:'',board:'food'}}).filter(Boolean)}
 
 // —— 随机选菜 ——
 export const ING_ROLES={main:'主菜',side:'辅菜',season:'调料'};
