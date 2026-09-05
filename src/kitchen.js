@@ -26,7 +26,7 @@ const close=()=>dlg.close();dlg.querySelectorAll('[data-close]').forEach(b=>b.on
 const list=dlg.querySelector('#pick-list'),search=dlg.querySelector('#pick-search');
 const draw=()=>{dlg.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));
 const src=(tab==='dining'?S.dining:S.recipes.filter(r=>r.type===tab)).filter(x=>x.name.toLowerCase().includes(q)||tab==='dining'&&(x.place||'').toLowerCase().includes(q));
-list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:ico('leaf',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}${x.calories?` · ${x.calories} 千卡/份`:''}</small></span>${ico('plus',16)}</button>`).join('')||'<p class="muted" style="padding:20px">没有匹配的记录</p>';
+list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}${x.calories?` · ${x.calories} 千卡/份`:''}</small></span>${ico('plus',16)}</button>`).join('')||'<p class="muted" style="padding:20px">没有匹配的记录</p>';
 list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const ref=tab==='dining'?findDining(b.dataset.id):findRecipe(b.dataset.id);if(!ref)return;dlg.close();orderDialog(ref,{date,meal});onDone?.()})};
 dlg.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});search.oninput=()=>{q=search.value.toLowerCase();draw()};draw()}
 
@@ -40,7 +40,7 @@ dlg.querySelectorAll('[data-spec]').forEach(box=>{const gname=box.dataset.spec;b
 let tab='dish';const list=dlg.querySelector('#em-list');
 const drawList=()=>{dlg.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));
 const src=(tab==='dining'?S.dining:S.recipes.filter(r=>r.type===tab)).filter(x=>x.id!==item.refId);
-list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:ico('leaf',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}</small></span></button>`).join('')||'<p class="muted" style="padding:12px">没有可选记录</p>';
+list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}</small></span></button>`).join('')||'<p class="muted" style="padding:12px">没有可选记录</p>';
 list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const ref2=tab==='dining'?findDining(b.dataset.id):findRecipe(b.dataset.id);if(!ref2)return;update(()=>{const it=menuItems(date,meal)[idx];if(!it)return;if(it.done)setItemDone(date,meal,idx,false);it.refType=ref2.type==='dining'?'dining':'recipe';it.refId=ref2.id;it.name=ref2.name;it.deducted=[];if(!ref2.specGroupIds?.length)it.specs={}});dlg.close();toast('已更换菜品');renderWeek(V())})};
 dlg.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;drawList()});drawList();
 (dlg.querySelector('#em-save')??document.createElement('button')).onclick=()=>{update(()=>{const it=menuItems(date,meal)[idx];if(!it)return;const wasDone=it.done;const newQty=qty,newSpecs={...specs};if(wasDone)setItemDone(date,meal,idx,false);it.qty=newQty;it.specs=newSpecs;it.note=ref?.type==='dining'?dlg.querySelector('#em-note')?.value.trim()||'':it.note;if(wasDone)setItemDone(date,meal,idx,true)});dlg.close();toast('已更新');renderWeek(V())}}
@@ -81,7 +81,7 @@ mount.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(window.confirm
 mount.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>selectRecipe(b.dataset.goto));
 mount.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>orderDialog(findRecipe(b.dataset.order)))}
 
-function matchCard(r,hit){return`<article class="recipe-card"><button class="card-main" data-goto="${r.id}"><div class="card-image">${r.image?`<img src="${esc(r.image)}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<span class="image-placeholder">${ico('leaf')}</span><span class="category-badge">${esc(r.category||'')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(hit.map(p=>p.name).join(' · '))}</p><div class="card-meta"><span>${ico('clock',12)} ${fmtTime(r)}</span>${r.calories?`<span>${ico('flame',12)} ${r.calories} 千卡</span>`:''}</div></div></button><button class="favorite" data-order="${r.id}" aria-label="点菜">${ico('plus',15)}</button></article>`}
+function matchCard(r,hit){return`<article class="recipe-card"><button class="card-main" data-goto="${r.id}"><div class="card-image">${r.image?`<img src="${esc(r.image)}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category||'')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(hit.map(p=>p.name).join(' · '))}</p><div class="card-meta"><span>${ico('clock',12)} ${fmtTime(r)}</span>${r.calories?`<span>${ico('flame',12)} ${r.calories} 千卡</span>`:''}</div></div></button><button class="favorite" data-order="${r.id}" aria-label="点菜">${ico('plus',15)}</button></article>`}
 function petBadge(icon,v){if(!v||v==='na')return'';return`<span class="badge pet-${v}">${icon} ${PET[v]}</span>`}
 
 export function foodDialog(item){const dlg=document.querySelector('#dialog-root');const isNew=!item;
@@ -149,7 +149,7 @@ dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
 
 // —— 通知：临期 + 前一天 18:00 备菜提醒 ——
 export function notifyExpiring(){const items=expiringItems();if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'&&S.settings.lastNotify!==today()){try{new Notification('食记 · 冰箱提醒',{body:items.slice(0,3).map(p=>`${p.name}${daysUntil(p.expiryDate)<0?'已过期':daysUntil(p.expiryDate)===0?'今天到期':`还剩${daysUntil(p.expiryDate)}天`}`).join('、')+(items.length>3?' 等':'')});update(()=>S.settings.lastNotify=today())}catch{}}}
+if('Notification'in window&&Notification.permission==='granted'&&S.settings.lastNotify!==today()){try{new Notification('饭饭 · 冰箱提醒',{body:items.slice(0,3).map(p=>`${p.name}${daysUntil(p.expiryDate)<0?'已过期':daysUntil(p.expiryDate)===0?'今天到期':`还剩${daysUntil(p.expiryDate)}天`}`).join('、')+(items.length>3?' 等':'')});update(()=>S.settings.lastNotify=today())}catch{}}}
 // 每天 18:00 综合检查：明天备菜 + 临期食材 + 低库存日用品，一条通知汇总
 export function dailyReminderCheck(){if(new Date().getHours()<18||S.settings.lastDailyNotify===today())return;
 const prep=prepItemsFor(addDays(today(),1));const exp=expiringItems();const low=S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt));
@@ -158,9 +158,9 @@ if('Notification'in window&&Notification.permission==='granted'){const parts=[];
 if(prep.length)parts.push(`明天需提前准备：${prep.slice(0,2).map(x=>x.item.name).join('、')}`);
 if(exp.length)parts.push(`临期食材：${exp.slice(0,2).map(p=>p.name).join('、')}`);
 if(low.length)parts.push(`日用品不足：${low.slice(0,2).map(d=>d.name).join('、')}`);
-try{new Notification('食记 · 18点提醒',{body:parts.join('；')});update(()=>S.settings.lastDailyNotify=today())}catch{}}}
+try{new Notification('饭饭 · 18点提醒',{body:parts.join('；')});update(()=>S.settings.lastDailyNotify=today())}catch{}}}
 export function reminderLists(){return{prep:prepUpcoming(7),exp:expiringItems(),low:S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt))}}
 export function notifyPrep(){if(new Date().getHours()<18||S.settings.lastPrepNotify===today())return;
 const tmr=addDays(today(),1);const items=prepItemsFor(tmr);if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'){try{new Notification('食记 · 备菜提醒',{body:`明天${items.slice(0,3).map(x=>`${x.item.name}×${x.item.qty||1}`).join('、')}有需要提前准备的步骤`});update(()=>S.settings.lastPrepNotify=today())}catch{}}}
+if('Notification'in window&&Notification.permission==='granted'){try{new Notification('饭饭 · 备菜提醒',{body:`明天${items.slice(0,3).map(x=>`${x.item.name}×${x.item.qty||1}`).join('、')}有需要提前准备的步骤`});update(()=>S.settings.lastPrepNotify=today())}catch{}}}
 export function requestNotify(){try{if('Notification'in window&&Notification.permission==='default')Notification.requestPermission()}catch{}}
