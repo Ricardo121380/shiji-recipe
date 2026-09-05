@@ -149,7 +149,7 @@ dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
 
 // —— 通知：临期 + 前一天 18:00 备菜提醒 ——
 export function notifyExpiring(){const items=expiringItems();if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'&&S.settings.lastNotify!==today()){try{new Notification('饭饭 · 冰箱提醒',{body:items.slice(0,3).map(p=>`${p.name}${daysUntil(p.expiryDate)<0?'已过期':daysUntil(p.expiryDate)===0?'今天到期':`还剩${daysUntil(p.expiryDate)}天`}`).join('、')+(items.length>3?' 等':'')});update(()=>S.settings.lastNotify=today())}catch{}}}
+if('Notification'in window&&Notification.permission==='granted'&&S.settings.lastNotify!==today()){try{new Notification('饭Fun · 冰箱提醒',{body:items.slice(0,3).map(p=>`${p.name}${daysUntil(p.expiryDate)<0?'已过期':daysUntil(p.expiryDate)===0?'今天到期':`还剩${daysUntil(p.expiryDate)}天`}`).join('、')+(items.length>3?' 等':'')});update(()=>S.settings.lastNotify=today())}catch{}}}
 // 每天 18:00 综合检查：明天备菜 + 临期食材 + 低库存日用品，一条通知汇总
 export function dailyReminderCheck(){if(new Date().getHours()<18||S.settings.lastDailyNotify===today())return;
 const prep=prepItemsFor(addDays(today(),1));const exp=expiringItems();const low=S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt));
@@ -158,9 +158,9 @@ if('Notification'in window&&Notification.permission==='granted'){const parts=[];
 if(prep.length)parts.push(`明天需提前准备：${prep.slice(0,2).map(x=>x.item.name).join('、')}`);
 if(exp.length)parts.push(`临期食材：${exp.slice(0,2).map(p=>p.name).join('、')}`);
 if(low.length)parts.push(`日用品不足：${low.slice(0,2).map(d=>d.name).join('、')}`);
-try{new Notification('饭饭 · 18点提醒',{body:parts.join('；')});update(()=>S.settings.lastDailyNotify=today())}catch{}}}
+try{new Notification('饭Fun · 18点提醒',{body:parts.join('；')});update(()=>S.settings.lastDailyNotify=today())}catch{}}}
 export function reminderLists(){return{prep:prepUpcoming(7),exp:expiringItems(),low:S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt))}}
 export function notifyPrep(){if(new Date().getHours()<18||S.settings.lastPrepNotify===today())return;
 const tmr=addDays(today(),1);const items=prepItemsFor(tmr);if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'){try{new Notification('饭饭 · 备菜提醒',{body:`明天${items.slice(0,3).map(x=>`${x.item.name}×${x.item.qty||1}`).join('、')}有需要提前准备的步骤`});update(()=>S.settings.lastPrepNotify=today())}catch{}}}
+if('Notification'in window&&Notification.permission==='granted'){try{new Notification('饭Fun · 备菜提醒',{body:`明天${items.slice(0,3).map(x=>`${x.item.name}×${x.item.qty||1}`).join('、')}有需要提前准备的步骤`});update(()=>S.settings.lastPrepNotify=today())}catch{}}}
 export function requestNotify(){try{if('Notification'in window&&Notification.permission==='default')Notification.requestPermission()}catch{}}
