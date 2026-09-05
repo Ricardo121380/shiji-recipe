@@ -20,21 +20,19 @@ export function parseAmountInfo(n){const m=String(n||'').trim().match(/^(\d+(?:\
 const unitMatch=(a,b)=>{a=norm(a);b=norm(b);return!!a&&!!b&&(a===b||a.includes(b)||b.includes(a))};
 
 const seedPhoto=id=>`https://images.unsplash.com/${id}?auto=format&fit=crop&w=1000&q=85`;
-export function defaultSpecGroups(){return[{id:uid(),name:'口味',options:['清淡','微辣','中辣','重辣']},{id:uid(),name:'忌口',options:['无花生','无海鲜','无辣']}]}
 
 function seedState(){const t=today();
-const dish=(n,cat,h,mi,serv,desc,img,ings,steps,fav,cal,sg=[])=>({id:uid(),type:'dish',name:n,category:cat,hours:h,minutes:mi,servings:serv,calories:cal,description:desc,image:img,ingredients:ings,steps:steps.map(s=>({text:s,image:'',prep:false})),favorite:fav,specGroupIds:sg});
+const dish=(n,cat,h,mi,serv,desc,img,ings,steps,fav,cal,specs=[],prep=false)=>({id:uid(),type:'dish',name:n,category:cat,hours:h,minutes:mi,servings:serv,calories:cal,description:desc,image:img,ingredients:ings,steps:steps.map(s=>({text:s,image:''})),favorite:fav,specs,prep});
 return {
 recipes:[
-dish('番茄罗勒意面','主食',0,25,2,'酸甜的番茄遇上新鲜罗勒。',seedPhoto('photo-1473093226795-af9932fe5856'),[{name:'意大利面',amount:'200g'},{name:'樱桃番茄',amount:'200g'},{name:'新鲜罗勒',amount:'适量'},{name:'大蒜',amount:'3瓣'},{name:'橄榄油',amount:'2勺'},{name:'盐',amount:'适量'}],['锅中加入足量清水和一小勺盐，煮沸后放入意大利面，按包装时间煮至自己喜欢的软硬度。留半碗煮面水备用。','番茄洗净对半切，大蒜切片。平底锅倒入橄榄油，小火炒香蒜片，加入番茄翻炒至变软出汁。','加入意面和少量煮面水，翻拌均匀。用盐和黑胡椒调味，最后放入新鲜罗勒，装盘即可。'],true,520),
-dish('牛油果鲜虾沙拉','轻食',0,15,1,'一碗清爽，也是一份认真照顾自己的心意。',seedPhoto('photo-1512621776951-a57141f2eefd'),[{name:'牛油果',amount:'1个'},{name:'虾仁',amount:'100g'},{name:'生菜',amount:'适量'},{name:'小番茄',amount:'6个'},{name:'柠檬',amount:'半个'}],['洗净蔬菜并沥干，牛油果切片，小番茄对半切。','虾仁煮熟，和蔬菜放入碗中。','加入橄榄油、柠檬汁和少许盐，轻轻拌匀。'],false,320),
-dish('香煎三文鱼','家常菜',0,20,2,'外皮微脆，内里柔嫩。',seedPhoto('photo-1467003909585-2f8a72700288'),[{name:'三文鱼',amount:'300g'},{name:'柠檬',amount:'半个'},{name:'芦笋',amount:'6根'},{name:'盐',amount:'适量'}],['三文鱼擦干水分，两面撒盐和黑胡椒。','平底锅加油，鱼皮朝下煎至金黄，翻面继续煎熟。','芦笋煎熟配在旁边，挤上柠檬汁。'],true,410),
+dish('番茄罗勒意面','主食',0,25,2,'酸甜的番茄遇上新鲜罗勒。',seedPhoto('photo-1473093226795-af9932fe5856'),[{name:'意大利面',amount:'200g'},{name:'樱桃番茄',amount:'200g'},{name:'新鲜罗勒',amount:'适量'},{name:'大蒜',amount:'3瓣'},{name:'橄榄油',amount:'2勺'},{name:'盐',amount:'适量'}],['锅中加入足量清水和一小勺盐，煮沸后放入意大利面，按包装时间煮至自己喜欢的软硬度。留半碗煮面水备用。','番茄洗净对半切，大蒜切片。平底锅倒入橄榄油，小火炒香蒜片，加入番茄翻炒至变软出汁。','加入意面和少量煮面水，翻拌均匀。用盐和黑胡椒调味，最后放入新鲜罗勒，装盘即可。'],true,520,[{name:'口味',options:['清淡','微辣','中辣'],enabled:true}]),
+dish('牛油果鲜虾沙拉','轻食',0,15,1,'一碗清爽，也是一份认真照顾自己的心意。',seedPhoto('photo-1512621776951-a57141f2eefd'),[{name:'牛油果',amount:'1个'},{name:'虾仁',amount:'100g'},{name:'生菜',amount:'适量'},{name:'小番茄',amount:'6个'},{name:'柠檬',amount:'半个'}],['洗净蔬菜并沥干，牛油果切片，小番茄对半切。','虾仁煮熟，和蔬菜放入碗中。','加入橄榄油、柠檬汁和少许盐，轻轻拌匀。'],false,320,[{name:'忌口',options:['无海鲜','无花生'],enabled:true}]),
+dish('香煎三文鱼','家常菜',0,20,2,'外皮微脆，内里柔嫩。',seedPhoto('photo-1467003909585-2f8a72700288'),[{name:'三文鱼',amount:'300g'},{name:'柠檬',amount:'半个'},{name:'芦笋',amount:'6根'},{name:'盐',amount:'适量'}],['三文鱼擦干水分，两面撒盐和黑胡椒。','平底锅加油，鱼皮朝下煎至金黄，翻面继续煎熟。','芦笋煎熟配在旁边，挤上柠檬汁。'],true,410,[],true),
 dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('photo-1528207776546-365bb710ee93'),[{name:'低筋面粉',amount:'150g'},{name:'鸡蛋',amount:'1个'},{name:'牛奶',amount:'150ml'},{name:'泡打粉',amount:'4g'},{name:'蜂蜜',amount:'适量'}],['面粉、泡打粉过筛，与鸡蛋和牛奶混合成面糊。','不粘锅小火预热，倒入面糊，表面冒泡后翻面。','煎至两面金黄，搭配水果和蜂蜜。'],false,380),
 {...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯'},{name:'香蕉',amount:'1根'},{name:'燕麦脆',amount:'适量'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180),type:'snack'},
-{...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150),type:'snack'}],
+{...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}]),type:'snack'}],
 dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
-cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','饮品'],snack:['零食','速食','甜品','饮料'],fridge:['蔬菜','肉类','水果','调料','乳制品','主食冻品','零食饮料','宠物食品','其他'],dining:['面食','火锅','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
-specGroups:defaultSpecGroups(),
+cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','饮品'],snack:['零食','速食','甜品','饮料'],fridge:['蔬菜','肉类','水果','调料','乳制品','主食冻品','零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
 {id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',notes:'煮熟后猫狗都可以少量吃'},
 {id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',notes:''},
@@ -53,11 +51,17 @@ function convertV1Recipes(raw){return raw.map(r=>({id:r.id,type:'dish',name:r.na
 function normalizeState(s){const def=seedState();const seeded=!s.settings?.dailySeeded;
 if(!Array.isArray(s.daily)||(seeded&&!s.daily.length))s.daily=def.daily;
 if(s.settings&&!s.settings.dailySeeded)s.settings.dailySeeded=true;
-s.recipes=(s.recipes||[]).map(r=>({specGroupIds:[],...r,steps:(r.steps||[]).map(x=>({image:'',prep:false,...x}))}));
+const legacyGroups=Array.isArray(s.specGroups)?s.specGroups:null;
+s.recipes=(s.recipes||[]).map(r=>{
+const base={specs:[],prep:false,...r,steps:(r.steps||[]).map(x=>({image:'',...x}))};
+if(!Array.isArray(base.specs)||!base.specs.length){const ids=Array.isArray(r.specGroupIds)?r.specGroupIds:[];if(ids.length&&legacyGroups)base.specs=legacyGroups.filter(g=>ids.includes(g.id)).map(g=>({name:g.name,options:[...g.options],enabled:true}))}
+if(!base.prep)base.prep=(r.steps||[]).some(x=>x.prep);
+delete base.specGroupIds;
+return base});
 s.dining=(s.dining||[]).map(d=>({place:'',...d}));
 s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',...p}));
 s.shopping=(s.shopping||[]).map(x=>({category:'',...x}));
-s.specGroups=Array.isArray(s.specGroups)&&s.specGroups.length?s.specGroups:def.specGroups;
+delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
 for(const cats of['cats'])for(const g of Object.keys(def[cats]))if(!Array.isArray(s[cats][g])||!s[cats][g].length)s[cats][g]=def[cats][g];
 s.menu=s.menu||{};s.log=s.log||{};
@@ -97,9 +101,9 @@ export function toast(msg){const el=document.querySelector('#toast');el.textCont
 export const findRecipe=id=>S.recipes.find(r=>r.id===id);
 export const findDining=id=>S.dining.find(r=>r.id===id);
 export const refOf=item=>item.refType==='dining'?findDining(item.refId):findRecipe(item.refId);
-export const specGroupOf=id=>(S.specGroups||[]).find(g=>g.id===id);
 export const itemSpecText=item=>Object.entries(item.specs||{}).filter(([,v])=>v).map(([k,v])=>`${k}:${v}`).join(' · ');
-export const refHasPrep=r=>!!r&&(r.type!=='dining')&&(r.steps||[]).some(s=>s.prep);
+export const refHasPrep=r=>!!r&&r.type!=='dining'&&(!!r.prep||(r.steps||[]).some(s=>s.prep));
+export const enabledSpecs=r=>(r?.specs||[]).filter(sp=>sp.enabled&&sp.name&&sp.options?.length);
 
 // —— 冰箱 ——
 export function pantryMatches(ingName){return S.pantry.filter(p=>p.kind==='ingredient'&&nameMatch(p.name,ingName))}
