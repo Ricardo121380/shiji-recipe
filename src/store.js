@@ -41,10 +41,31 @@ menu:{[t]:{dinner:[{refType:'recipe',refId:'',name:'番茄罗勒意面',done:fal
 log:{},nutrition:{goal:2000},shopping:[],settings:{lastNotify:''}};
 }
 
-function migrateV1(){try{const raw=JSON.parse(localStorage.getItem(OLD_KEY));if(!Array.isArray(raw))return null;const s=seedState();const t=today();s.recipes=raw.map(r=>({id:r.id,type:'dish',name:r.name,category:r.category||'家常菜',hours:Math.floor((r.time||30)/60),minutes:(r.time||30)%60,servings:r.servings||2,calories:null,description:r.description||'',image:r.image||'',ingredients:String(r.ingredients||'').split('\n').filter(x=>x.trim()).map(line=>{const parts=line.trim().split(/\s+/);return{name:parts[0],amount:parts.slice(1).join(' ')}}),steps:(r.steps||[]).map(x=>({text:x,image:'',prep:false})),favorite:!!r.favorite}));
+function convertV1Recipes(raw){return raw.map(r=>({id:r.id,type:'dish',name:r.name,category:r.category||'家常菜',hours:Math.floor((r.time||30)/60),minutes:(r.time||30)%60,servings:r.servings||2,calories:null,description:r.description||'',image:r.image||'',ingredients:String(r.ingredients||'').split('\n').filter(x=>x.trim()).map(line=>{const parts=line.trim().split(/\s+/);return{name:parts[0],amount:parts.slice(1).join(' ')}}),steps:(r.steps||[]).map(x=>({text:x,image:'',prep:false})),favorite:!!r.favorite}))}
+
+function migrateV1(){try{const raw=JSON.parse(localStorage.getItem(OLD_KEY));if(!Array.isArray(raw))return null;const s=seedState();const t=today();s.recipes=convertV1Recipes(raw);
 s.menu={[t]:{dinner:raw.filter(r=>r.menu).map(r=>({refType:'recipe',refId:r.id,name:r.name,done:false}))}};return s}catch{return null}}
 
-export function load(){try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);const def=seedState();for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];return s}const m=migrateV1();if(m){localStorage.setItem(KEY,JSON.stringify(m));return m}}catch{}const s=seedState();localStorage.setItem(KEY,JSON.stringify(s));return s}
+export function load(){let raw=null;try{raw=localStorage.getItem(KEY)}catch{}
+if(raw){try{const s=JSON.parse(raw);if(Array.isArray(s.recipes)&&Array.isArray(s.pantry)){const def=seedState();for(const k of Object.keys(def))if(k!=='recipes'&&s[k]===undefined)s[k]=def[k];return s}}catch{}}
+try{const arr=JSON.parse(localStorage.getItem(OLD_KEY));if(Array.isArray(arr)&&arr.length){const m=seedState();const t=today();m.recipes=convertV1Recipes(arr);m.menu={[t]:{dinner:arr.filter(r=>r.menu).map(r=>({refType:'recipe',refId:r.id,name:r.name,done:false}))}};try{localStorage.setItem(KEY,JSON.stringify(m))}catch{};return m}}catch{}
+const s=seedState();try{localStorage.setItem(KEY,JSON.stringify(s))}catch{}
+return s}
+
+// 导入备份：兼容 v2 完整备份 {version:2,state} 与 v1 旧格式 {version:1,recipes}，返回规范化状态或 null
+export function normalizeImport(data){try{
+let base=null;
+if(Array.isArray(data))base={recipes:convertV1Recipes(data)};
+else if(data&&Array.isArray(data.state?.recipes))base=data.state;
+else if(data&&Array.isArray(data.recipes)){
+if(data.version===1)base={recipes:convertV1Recipes(data.recipes)};
+else if(data.cats&&data.pantry)base=data;
+else if(data.recipes.every(r=>typeof r.time==='number'))base={recipes:convertV1Recipes(data.recipes)};
+}
+if(!base||!Array.isArray(base.recipes))return null;
+const s={...seedState(),...base};
+if(!Array.isArray(s.recipes)||!Array.isArray(s.pantry))return null;
+return s}catch{return null}}
 
 export let S=load();
 const listeners=new Set();
