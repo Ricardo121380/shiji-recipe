@@ -2,6 +2,10 @@
 
 轻量的中文菜谱管理网页，使用原生 JavaScript、CSS 和 Vite。
 
+**线上地址：https://ricardo121380.github.io/shiji-recipe/**
+
+源码托管在 GitHub（[Ricardo121380/shiji-recipe](https://github.com/Ricardo121380/shiji-recipe)），推送 main 分支后由 GitHub Actions 自动构建并发布到 GitHub Pages。
+
 ## 启动
 
 ```bash
