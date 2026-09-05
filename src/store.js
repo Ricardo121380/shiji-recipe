@@ -32,7 +32,7 @@ dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('pho
 {...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180),type:'snack'},
 {...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}]),type:'snack'}],
 dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
-cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','饮品'],snack:['零食','速食','甜品','饮料'],fridge:['蔬菜','肉类','水果','调料','乳制品','主食冻品','零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
+cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','饮品'],snack:['零食','速食','甜品','饮料'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
 {id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',notes:'煮熟后猫狗都可以少量吃'},
 {id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',notes:''},
@@ -64,7 +64,7 @@ s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',...p}));
 s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};if(!x.board&&base.category&&(s.cats?.daily||[]).includes(base.category))base.board='daily';return base});
 delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
-for(const cats of['cats'])for(const g of Object.keys(def[cats]))if(!Array.isArray(s[cats][g])||!s[cats][g].length)s[cats][g]=def[cats][g];
+for(const g of Object.keys(def.cats))if(!Array.isArray(s.cats[g])||!s.cats[g].length)s.cats[g]=def.cats[g];
 s.menu=s.menu||{};s.log=s.log||{};
 for(const d of Object.keys(s.menu))for(const m of Object.keys(s.menu[d]))s.menu[d][m]=(s.menu[d][m]||[]).map(it=>({qty:1,specs:{},note:'',deducted:[],...it}));
 return s}
@@ -120,24 +120,24 @@ export function restoreDeducted(recs){for(const rec of recs||[]){const p=S.pantr
 export function menuItems(date,meal){return(S.menu[date]?.[meal])||[]}
 export function addToMenu(date,meal,ref,qty=1,specs={},note=''){if(!S.menu[date])S.menu[date]={};(S.menu[date][meal]=S.menu[date][meal]||[]).push({refType:ref.type==='dining'?'dining':'recipe',refId:ref.id,name:ref.name,done:false,qty,specs,note,deducted:[]})}
 export function removeMenuItem(date,meal,idx){const it=menuItems(date,meal)[idx];if(!it)return;
-if(it.done){restoreDeducted(it.deducted);it.deducted=[];if(S.log[date]){S.log[date]=S.log[date].filter(e=>!(e.refId===it.refId&&e.name===it.name&&e.meal===meal));if(!S.log[date].length)delete S.log[date]}}
+if(it.done){restoreDeducted(it.deducted);it.deducted=[]}
 S.menu[date]?.[meal]?.splice(idx,1)}
 export function changeItemQty(date,meal,idx,delta){const it=menuItems(date,meal)[idx];if(!it)return;it.qty=Math.max(1,(Number(it.qty)||1)+delta)}
 
 // 勾选「已吃」→ 记录 + 扣库存；取消 → 撤销记录 + 回补库存
 export function setItemDone(date,meal,idx,done){const item=menuItems(date,meal)[idx];if(!item||item.done===done)return;const r=refOf(item);
 if(done){const recs=[];if(r&&r.type!=='dining')for(const ing of r.ingredients||[]){const rec=deductIngredient(ing.name,ing.amount,item.qty||1);if(rec)recs.push(rec)}
-item.done=true;item.deducted=recs;(S.log[date]=S.log[date]||[]).push({meal,name:item.name,refId:item.refId,refType:item.refType,calories:Math.round(((r?.calories)||0)*(item.qty||1)),qty:item.qty||1,specs:item.specs||{}});pruneLog()}
-else{item.done=false;restoreDeducted(item.deducted);item.deducted=[];if(S.log[date]){S.log[date]=S.log[date].filter(e=>!(e.refId===item.refId&&e.name===item.name&&e.meal===meal));if(!S.log[date].length)delete S.log[date]}}}
+item.done=true;item.deducted=recs}
+else{item.done=false;restoreDeducted(item.deducted);item.deducted=[]}}
 
 // —— 提前准备提醒 ——
 export function prepItemsFor(date){const out=[];for(const[m]of MEALS)for(const item of menuItems(date,m))if(!item.done&&refHasPrep(refOf(item)))out.push({date,meal:m,item});return out}
 export function prepUpcoming(days=7){const out=[];for(let i=0;i<days;i++){const d=addDays(today(),i);for(const x of prepItemsFor(d))out.push(x)}return out}
 
-// —— 日志（就餐记录，按自然月） ——
-export function logMeal(date,meal,ref,qty=1,specs={}){(S.log[date]=S.log[date]||[]).push({meal,name:ref.name,refId:ref.id,refType:ref.type==='dining'?'dining':'recipe',calories:Math.round((Number(ref.calories)||0)*qty),qty,specs});pruneLog()}
-export function dayIntake(date){return(S.log[date]||[]).reduce((n,e)=>n+(Number(e.calories)||0),0)}
-export function pruneLog(){const cur=monthOf(today()),prev=monthOf(addDays(cur+'-01',-1));for(const d of Object.keys(S.log))if(monthOf(d)!==cur&&monthOf(d)!==prev)delete S.log[d]}
+// —— 已吃记录：以本周菜单勾选状态为唯一事实来源，随时刷新 ——
+export function derivedLog(){const out={};for(const d of Object.keys(S.menu))for(const m of Object.keys(S.menu[d]))for(const it of S.menu[d][m]){if(!it.done)continue;const r=refOf(it);(out[d]=out[d]||[]).push({meal:m,name:it.name,refId:it.refId,refType:it.refType,calories:Math.round((Number(r?.calories)||0)*(it.qty||1)),qty:it.qty||1,specs:it.specs||{}})}
+return out}
+export function dayIntake(date){return(derivedLog()[date]||[]).reduce((n,e)=>n+(Number(e.calories)||0),0)}
 
 // —— 购买清单 ——
 export function pushToShopping(name,amount='',category='',board='food'){if(S.shopping.some(s=>s.name===name&&s.board===board))return;S.shopping.push({id:uid(),name,amount,checked:false,category,board})}

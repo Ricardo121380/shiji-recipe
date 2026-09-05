@@ -1,9 +1,12 @@
-import{S,today,addDays,MEALS,fmtDate,onChange,pruneLog,persist,normalizeImport,toast,prepItemsFor,prepUpcoming}from'./store.js';
+import{S,today,addDays,MEALS,fmtDate,onChange,persist,normalizeImport,toast,prepItemsFor,prepUpcoming}from'./store.js';
 import{ico,esc}from'./ui.js';
 import{render as renderRecipes,setType}from'./recipes.js';
 import{renderWeek,renderFridge,renderShopping,renderDaily,notifyExpiring,notifyPrep,dailyReminderCheck,reminderLists,requestNotify}from'./kitchen.js';
 import{renderDining,renderJournal,renderHealth,renderRecommend}from'./life.js';
 import{openSettings}from'./settings.js';
+
+const BUILD_ID=typeof __BUILD_ID__!=='undefined'?__BUILD_ID__:'dev';
+try{const prev=localStorage.getItem('shiji-build');if(prev&&prev!==BUILD_ID){localStorage.setItem('shiji-build',BUILD_ID);location.reload();throw new Error('reload')}localStorage.setItem('shiji-build',BUILD_ID)}catch{}
 
 const NAV=[['#/recipes','book','菜谱'],['#/dining','utensils','外出就餐'],['#/week','calendar','本周菜单'],['#/fridge','fridge','冰箱'],['#/shopping','cart','购买清单'],['#/health','flame','热量记录'],['#/recommend','sparkle','菜品推荐'],['#/journal','grid','就餐记录'],['#/daily','grid','日用品库存']];
 const TITLES=Object.fromEntries(NAV.map(([h,,l])=>[h,l]));
@@ -41,7 +44,6 @@ function prepBellCount(){return prepUpcoming(2).length}
 
 window.addEventListener('hashchange',renderApp);
 onChange(renderApp);
-pruneLog();
 renderApp();
 notifyExpiring();
 notifyPrep();
