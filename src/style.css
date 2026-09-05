@@ -40,6 +40,7 @@ dialog{padding:0;border:1px solid #dfe6d9;border-radius:12px;width:650px;max-wid
 /* —— 外出 / 日用品卡片网格 —— */
 .dining-grid,.daily-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.dining-card,.daily-card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:14px 16px;display:flex;flex-direction:column;gap:7px}.daily-top{display:flex;justify-content:space-between;align-items:center;gap:8px}.daily-top strong{font-size:14px;font-weight:600}.daily-actions{display:flex;align-items:center;gap:12px;margin-top:2px}.daily-actions .text-button{gap:4px}
 /* —— 购买清单板块 —— */
+.shop-stockin{display:flex;gap:5px}.shop-stockin input{width:64px;border:1px solid #dce4d6;background:#fdfefb;border-radius:5px;padding:6px 8px;font-size:11px;color:#435740}.shop-stockin input[aria-label=单位]{width:52px}
 .shop-board{margin-bottom:22px}.shop-board .collection-bar{margin-bottom:4px}.item-cal{font-style:normal;font-size:8px;color:#8ba07b;background:#eef3e8;border-radius:3px;padding:1px 4px;margin-left:4px}
 /* —— 规格管理 —— */
 .spec-group{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:12px;background:#fbfcf9}.spec-head{display:flex;gap:9px;align-items:center;margin-bottom:9px}.spec-head input{border:1px solid #dce4d6;background:#fff;border-radius:5px;padding:7px 10px;font-size:12px;width:140px;color:#435740;font-weight:500}
