@@ -2,14 +2,12 @@
 
 轻量的中文厨房管理网页：菜谱、本周菜单、冰箱库存、热量统计，纯前端 + 浏览器本地存储，无需服务器。
 
-**线上地址（双线路）：**
+**线上地址（已固定，长期不变）：**
 
-- GitHub Pages：https://ricardo121380.github.io/shiji-recipe/
-- Cloudflare Pages：https://shiji-recipe.pages.dev/
+- **GitHub Pages（主地址，分享给他人用这个）**：https://ricardo121380.github.io/shiji-recipe/
+- Cloudflare Pages（备用线路）：https://shiji-recipe.pages.dev/
 
-GitHub Pages 由 GitHub Actions 在每次推送 main 后自动构建发布；Cloudflare Pages 线路需要手动执行 `npm run deploy` 更新（内容完全一致，可作为备用线路）。
-
-源码托管在 GitHub（[Ricardo121380/shiji-recipe](https://github.com/Ricardo121380/shiji-recipe)）。
+两条线路网址长期固定，后续更新只替换内容、不改网址。菜谱数据按「网址 + 浏览器」隔离，请固定使用同一网址访问；跨线路搬家用「导出备份 / 导入备份」。详见 [AGENTS.md](AGENTS.md) 中的网址与数据约定。
 
 ## 功能
 
