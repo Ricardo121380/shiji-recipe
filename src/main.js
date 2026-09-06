@@ -3,7 +3,7 @@ import{ico,esc}from'./ui.js';
 import*as sync from'./sync.js';
 window.__syncDebug=sync;
 import{render as renderRecipes,setType}from'./recipes.js';
-import{renderWeek,renderFridge,renderShopping,renderDaily,notifyExpiring,notifyPrep,dailyReminderCheck,reminderLists,requestNotify}from'./kitchen.js';
+import{renderWeek,renderFridge,renderShopping,renderDaily,notifyExpiring,notifyPrep,dailyReminderCheck,morningDefrostCheck,reminderLists,requestNotify}from'./kitchen.js';
 import{renderDining,renderJournal,renderHealth,renderRecommend}from'./life.js';
 import{openSettings}from'./settings.js';
 
@@ -21,7 +21,7 @@ function importBackup(){const inp=document.createElement('input');inp.type='file
 
 function showSync(){const dlg=document.querySelector('#dialog-root');const bound=sync.isBound();
 if(!bound){dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>云端同步</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p style="margin-top:0">绑定同步码后，本机数据自动与云端保持一致——其他设备输入同一个码即可互通。</p><label class="field">同步码 <span class="optional">建议使用生成的随机码，切勿使用简单词</span><input id="sync-code" maxlength="48" placeholder="例如：fanfun-8f3k2m9x"></label><p class="muted">同步码是数据的唯一凭证，请勿泄露；所有设备的饮食数据将存入 Cloudflare。</p></div><div class="modal-footer"><span></span><div><button class="secondary" id="gen-code">生成随机码</button><button class="primary" id="bind-go">绑定并开始同步</button></div></div></div>`}
-else{dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>云端同步</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p style="margin-top:0">同步码：<strong>······${sync.getCode().slice(-4)}</strong>（完整码仅存于各设备浏览器）</p><p>云端最后更新：${sync.lastCloudAt()||'尚无'}<br>本地上次同步：${sync.lastSyncAt()||'尚无'}</p><label class="prep-line"><input type="checkbox" id="sync-pause" ${sync.isPaused()?'checked':''}> 暂停自动同步（改动只保留在本机）</label><p class="muted">自动同步：打开网站时、改动后约 4 秒、以及网页打开期间每 30 秒检查一次。弹窗编辑时不会打扰。</p></div><div class="modal-footer"><span></span><div><button class="secondary danger-button" id="sync-unbind">解除绑定</button><button class="primary" id="sync-now">立即同步</button></div></div></div>`}
+else{dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>云端同步</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p style="margin-top:0">同步码：<strong>······${sync.getCode().slice(-4)}</strong>（完整码仅存于各设备浏览器）</p><p>本机：<strong>${S.recipes.length}</strong> 道菜谱 · 云端：<strong>${sync.lastCloudRecipes()}</strong> 道菜谱<br>云端最后更新：${sync.lastCloudAt()||'尚无'}<br>本地上次同步：${sync.lastSyncAt()||'尚无'}</p><label class="prep-line"><input type="checkbox" id="sync-pause" ${sync.isPaused()?'checked':''}> 暂停自动同步（改动只保留在本机）</label><p class="muted">自动同步：打开网站时、改动后约 4 秒、以及网页打开期间每 30 秒检查一次。弹窗编辑时不会打扰。</p></div><div class="modal-footer"><span></span><div><button class="secondary danger-button" id="sync-unbind">解除绑定</button><button class="primary" id="sync-now">立即同步</button></div></div></div>`}
 dlg.showModal();
 dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
 dlg.querySelector('#gen-code')?.addEventListener('click',()=>{dlg.querySelector('#sync-code').value=sync.generateCode()});

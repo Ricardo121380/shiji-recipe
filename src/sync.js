@@ -6,8 +6,9 @@ export const apiBase=()=>location.hostname.endsWith('pages.dev')?'':'https://shi
 export const getCode=()=>localStorage.getItem('shiji-sync-code')||'';
 export const isBound=()=>!!getCode();
 export const lastSyncAt=()=>localStorage.getItem(AT)||'';
-let lastCloudAtVal='';let cloudNewerFlag=false;
+let lastCloudAtVal='';let cloudNewerFlag=false;let lastCloudRecipesVal=null;
 export const lastCloudAt=()=>lastCloudAtVal;
+export const lastCloudRecipes=()=>lastCloudRecipesVal;
 export function dot(){if(!isBound()||isPaused())return 0;return cloudNewerFlag?1:0}
 export const bindCode=c=>{c=String(c||'').trim().toLowerCase();if(!/^[a-z0-9-]{8,48}$/.test(c))throw new Error('同步码需为 8-48 位小写字母、数字或连字符');localStorage.setItem('shiji-sync-code',c)};
 export const unbind=()=>{localStorage.removeItem('shiji-sync-code');localStorage.removeItem(AT);dirty=false};
@@ -31,7 +32,7 @@ if(isPaused()&&!manual)return;
 if(document.querySelector('#dialog-root')?.open&&!manual)return;
 running=true;try{
 const meta=await fetchMeta();
-lastCloudAtVal=meta.updatedAt||'';
+lastCloudAtVal=meta.updatedAt||'';lastCloudRecipesVal=(meta.data?.state?.recipes||[]).length;
 const base=lastSyncAt();
 const cloudNewer=!!(meta.updatedAt&&meta.updatedAt>base);
 const localDirty=dirty;
