@@ -8,7 +8,7 @@ export const isBound=()=>!!getCode();
 export const lastSyncAt=()=>localStorage.getItem(AT)||'';
 let lastCloudAtVal='';let cloudNewerFlag=false;let lastCloudRecipesVal=null;
 export const lastCloudAt=()=>lastCloudAtVal;
-export const lastCloudRecipes=()=>lastCloudRecipesVal;
+export const lastCloudRecipes=()=>lastCloudRecipesVal??0;
 export function dot(){if(!isBound()||isPaused())return 0;return cloudNewerFlag?1:0}
 export const bindCode=c=>{c=String(c||'').trim().toLowerCase();if(!/^[a-z0-9-]{8,48}$/.test(c))throw new Error('同步码需为 8-48 位小写字母、数字或连字符');localStorage.setItem('shiji-sync-code',c)};
 export const unbind=()=>{localStorage.removeItem('shiji-sync-code');localStorage.removeItem(AT);dirty=false};
