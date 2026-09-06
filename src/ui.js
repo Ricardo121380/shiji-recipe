@@ -58,3 +58,37 @@ export function fileToDataUrl(input,cb,max=1400,q=0.82){
 }
 
 export function confirmDlg(message){return new Promise(res=>{if(window.confirm(message))res(true);else res(false)})}
+
+export function zoomImage(src,alt=''){
+  if(!src)return;
+  let box=document.querySelector('#lightbox');
+  if(!box){
+    box=document.createElement('dialog');
+    box.id='lightbox';
+    box.setAttribute('aria-label','查看大图');
+    box.innerHTML=`<button type="button" class="lightbox-close" aria-label="关闭">${ico('close',22)}</button><img alt="">`;
+    document.body.appendChild(box);
+    box.addEventListener('click',e=>{if(e.target===box||e.target.closest('.lightbox-close')||e.target.tagName==='IMG')closeLightbox()});
+    box.addEventListener('close',()=>{
+      const img=box.querySelector('img');
+      if(img)img.removeAttribute('src');
+      document.body.style.overflow='';
+    });
+  }
+  const img=box.querySelector('img');
+  img.src=src;img.alt=alt||'';
+  if(!box.open)box.showModal();
+  document.body.style.overflow='hidden';
+}
+export function closeLightbox(){
+  const box=document.querySelector('#lightbox');
+  if(box?.open)box.close();
+}
+
+document.addEventListener('click',e=>{
+  const img=e.target.closest?.('img.zoomable');
+  if(!img||!img.src||img.closest('#lightbox'))return;
+  e.preventDefault();
+  e.stopPropagation();
+  zoomImage(img.currentSrc||img.src,img.alt);
+},true);
