@@ -23,24 +23,21 @@ function importBackup(){const inp=document.createElement('input');inp.type='file
 function showSync(refresh=true){const dlg=document.querySelector('#dialog-root');const bound=sync.isBound();
 if(!bound){dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>云端同步</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p style="margin-top:0">绑定同步码后，本机数据自动与云端保持一致——其他设备输入同一个码即可互通。</p><label class="field">同步码 <span class="optional">建议使用生成的随机码，切勿使用简单词</span><input id="sync-code" maxlength="48" placeholder="例如：fanfun-8f3k2m9x"></label><p class="muted">同步码是数据的唯一凭证，请勿泄露；所有设备的饮食数据将存入 Cloudflare。</p></div><div class="modal-footer"><span></span><div><button class="secondary" id="gen-code">生成随机码</button><button class="primary" id="bind-go">绑定并开始同步</button></div></div></div>`}
 else{dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>云端同步</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p style="margin-top:0">同步码：<strong>······${sync.getCode().slice(-4)}</strong>（完整码仅存于各设备浏览器）</p><p>本机：<strong>${S.recipes.length}</strong> 道菜谱 · 云端：<strong>${sync.lastCloudRecipes()}</strong> 道菜谱<br>云端最后更新：${sync.lastCloudAt()||'尚无'}<br>本地上次同步：${sync.lastSyncAt()||'尚无'}</p><label class="prep-line"><input type="checkbox" id="sync-pause" ${sync.isPaused()?'checked':''}> 暂停自动同步（改动只保留在本机）</label><p class="muted">自动同步：打开网站时、改动后约 4 秒、以及网页打开期间每 30 秒检查一次。弹窗编辑时不会打扰。</p></div><div class="modal-footer"><span></span><div><button class="secondary danger-button" id="sync-unbind">解除绑定</button><button class="primary" id="sync-now">立即同步</button></div></div></div>`}
-dlg.showModal();
+if(!dlg.open)dlg.showModal();
 const refreshPanel=()=>{if(!dlg.open)return;sync.tick(true).then(()=>{if(dlg.querySelector('#sync-now')&&dlg.open)showSync(false)}).catch(()=>{})};
 dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
 dlg.querySelector('#gen-code')?.addEventListener('click',()=>{dlg.querySelector('#sync-code').value=sync.generateCode()});
 dlg.querySelector('#bind-go')?.addEventListener('click',()=>{try{sync.bindCode(dlg.querySelector('#sync-code').value)}catch(e){toast(e.message);return}dlg.close();toast('同步码已绑定，开始首次同步');sync.tick(true).then(()=>{renderApp();showSync(false)})});
 dlg.querySelector('#sync-now')?.addEventListener('click',()=>{dlg.close();sync.tick(true).then(()=>{renderApp();showSync(false)})});
 dlg.querySelector('#sync-pause')?.addEventListener('change',e=>{sync.setPaused(e.target.checked);renderApp()});
-dlg.querySelector('#sync-unbind')?.addEventListener('click',()=>{if(confirm('解除绑定后本机不再自动同步（数据保留在本机）。确定？')){sync.unbind();dlg.close();renderApp()}})}
+dlg.querySelector('#sync-unbind')?.addEventListener('click',()=>{if(confirm('解除绑定后本机不再自动同步（数据保留在本机）。确定？')){sync.unbind();dlg.close();renderView()}});
+if(bound&&refresh)refreshPanel()}
 
 function showReminders(){const dlg=document.querySelector('#dialog-root');const{prep,exp,low}=reminderLists();const defrost=defrostItemsFor(addDays(today(),1));const defrostToday=defrostItemsFor(today());
 dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">GET READY</span><h2>提醒中心</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${defrost.length?`<h3 class="match-title">❄ 解冻提醒（明天要做的菜）</h3><div>${defrost.map(({date,item})=>{const r=S.recipes.find(x=>x.id===item.refId);return`<span class="journal-item defrost-item"><em>${fmtDate(date)}</em>${esc(item.name)}${item.qty>1?` ×${item.qty}`:''}<small>解冻：${defrostNames(r).join('、')}</small></span>`}).join('')}</div>`:''}${defrostToday.length?`<h3 class="match-title">❄ 今天要解冻</h3><div>${defrostToday.map(({item})=>{const r=S.recipes.find(x=>x.id===item.refId);return`<span class="journal-item defrost-item"><em>今天</em>${esc(item.name)}<small>解冻：${defrostNames(r).join('、')}</small></span>`}).join('')}</div>`:''}${prep.length?`<h3 class="match-title">${ico('clock',14)} 备菜提醒（勾选已吃后自动移除）</h3><div class="journal-list" style="margin-top:8px">${prep.map(({date,meal,item})=>{const r=(item.refType==='dining'?null:S.recipes.find(x=>x.id===item.refId));const pr=(r?.steps||[]).filter(s2=>s2.prep).map(s2=>s2.text);return`<div class="journal-day"><header><strong>${fmtDate(date)} 周${'日一二三四五六'[new Date(date+'T00:00:00').getDay()]} · ${MEALS.find(m=>m[0]===meal)[1]}</strong><span>${date===addDays(today(),1)?'明天':date===today()?'今天':''}</span></header><span class="journal-item"><em>${esc(item.name)}${item.qty>1?` ×${item.qty}`:''}</em>${esc(pr[0]||'需要提前准备')}</span></div>`}).join('')}</div>`:''}${exp.length?`<h3 class="match-title">${ico('bell',14)} 临期食材（2 天内到期）</h3><div>${exp.map(p=>`<span class="journal-item"><em>${daysUntil(p.expiryDate)<0?'已过期':daysUntil(p.expiryDate)===0?'今天到期':`剩${daysUntil(p.expiryDate)}天`}</em>${esc(p.name)}<small>剩 ${esc(p.qty)} ${esc(p.unit)}</small></span>`).join('')}</div>`:''}${low.length?`<h3 class="match-title">${ico('cart',14)} 低库存日用品</h3><div>${low.map(d=>`<span class="journal-item"><em>余量不足</em>${esc(d.name)}<small>剩 ${esc(d.qty)} ${esc(d.unit)}</small></span>`).join('')}</div>`:''}${!prep.length&&!defrost.length&&!defrostToday.length&&!exp.length&&!low.length?`<div class="empty"><div>${ico('bell')}</div><h3>暂无提醒</h3><p>备菜、解冻、临期食材和低库存日用品会出现在这里。</p></div>`:''}</div><div class="modal-footer"><span class="muted">每天 18:00 汇总通知一次（需允许浏览器通知；iOS 请先加到主屏幕）</span><div><button class="secondary" data-close>关闭</button></div></div></div>`;dlg.showModal();
 dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close())}
 
-function renderApp(){const r=route();
-document.querySelector('#app').innerHTML=`
-<aside class="sidebar"><a class="brand" href="#/recipes"><span class="brand-symbol">${ico('bowl',26)}</span><span>饭Fun<span class="brand-en">好好吃饭小助手</span></span></a><div class="space-label">我的厨房</div><nav>${NAV.map(([h,icon,label])=>`<a class="nav-item ${r===h?'active':''}" href="${h}">${ico(icon)}<span>${label}</span></a>`).join('')}</nav><div class="sidebar-note"><span class="little-sprig">${ico('bowl')}</span><strong>好好吃饭，好好生活。</strong><p>菜谱、菜单、冰箱和热量，<br>都在这里慢慢积累。</p></div><div class="sidebar-bottom"><span class="avatar">我</span><div>本地保存<small>数据仅存于当前浏览器</small></div><span class="status-dot"></span></div></aside>
-<div class="workspace"><header class="topbar"><div class="breadcrumb">我的厨房 <span>/</span> ${TITLES[r]}</div><div class="top-actions"><button class="text-button" id="notify">${ico('bell',15)}${prepBellCount()?`<span class="bell-badge">${prepBellCount()}</span>`:''} 提醒</button><span class="top-divider"></span><button class="text-button" id="cats">${ico('settings',15)} 分类</button><span class="top-divider"></span><button class="text-button" id="cloud">${ico('cloud',15)} 云同步</button><span class="top-divider"></span><button class="text-button" id="import">导入备份</button><span class="top-divider"></span><button class="text-button" id="export">导出备份</button></div></header><main id="view"></main></div>`;
-const view=document.querySelector('#view');
+function fillView(view,r){
 if(r==='#/recipes')renderRecipes(view);
 else if(r==='#/week')renderWeek(view);
 else if(r==='#/fridge')renderFridge(view);
@@ -49,17 +46,29 @@ else if(r==='#/shopping')renderShopping(view);
 else if(r==='#/journal')renderJournal(view);
 else if(r==='#/health')renderHealth(view);
 else if(r==='#/recommend')renderRecommend(view);
-else if(r==='#/daily')renderDaily(view);
+else if(r==='#/daily')renderDaily(view)}
+function bindTopbar(){
 (document.querySelector('#export')??document.createElement('button')).onclick=exportBackup;
 (document.querySelector('#cloud')??document.createElement('button')).onclick=()=>showSync();
 (document.querySelector('#import')??document.createElement('button')).onclick=importBackup;
 (document.querySelector('#cats')??document.createElement('button')).onclick=()=>openSettings();
 (document.querySelector('#notify')??document.createElement('button')).onclick=()=>{showReminders();requestNotify()}}
+function renderView(){const r=route();const view=document.querySelector('#view');if(!view){renderApp();return}
+document.querySelectorAll('a.nav-item').forEach(a=>a.classList.toggle('active',a.getAttribute('href')===r));
+const bc=document.querySelector('.breadcrumb');if(bc)bc.innerHTML=`我的厨房 <span>/</span> ${TITLES[r]}`;
+const notify=document.querySelector('#notify');if(notify)notify.innerHTML=`${ico('bell',15)}${prepBellCount()?`<span class="bell-badge">${prepBellCount()}</span>`:''} 提醒`;
+fillView(view,r)}
+function renderApp(){const r=route();
+document.querySelector('#app').innerHTML=`
+<aside class="sidebar"><a class="brand" href="#/recipes"><span class="brand-symbol">${ico('bowl',26)}</span><span>饭Fun<span class="brand-en">好好吃饭小助手</span></span></a><div class="space-label">我的厨房</div><nav>${NAV.map(([h,icon,label])=>`<a class="nav-item ${r===h?'active':''}" href="${h}">${ico(icon)}<span>${label}</span></a>`).join('')}</nav><div class="sidebar-note"><span class="little-sprig">${ico('bowl')}</span><strong>好好吃饭，好好生活。</strong><p>菜谱、菜单、冰箱和热量，<br>都在这里慢慢积累。</p></div><div class="sidebar-bottom"><span class="avatar">我</span><div>本地保存<small>数据仅存于当前浏览器</small></div><span class="status-dot"></span></div></aside>
+<div class="workspace"><header class="topbar"><div class="breadcrumb">我的厨房 <span>/</span> ${TITLES[r]}</div><div class="top-actions"><button class="text-button" id="notify">${ico('bell',15)}${prepBellCount()?`<span class="bell-badge">${prepBellCount()}</span>`:''} 提醒</button><span class="top-divider"></span><button class="text-button" id="cats">${ico('settings',15)} 分类</button><span class="top-divider"></span><button class="text-button" id="cloud">${ico('cloud',15)} 云同步</button><span class="top-divider"></span><button class="text-button" id="import">导入备份</button><span class="top-divider"></span><button class="text-button" id="export">导出备份</button></div></header><main id="view"></main></div>`;
+bindTopbar();
+fillView(document.querySelector('#view'),r)}
 
 function prepBellCount(){return prepUpcoming(2).length}
 
-window.addEventListener('hashchange',renderApp);
-onChange(renderApp);
+window.addEventListener('hashchange',renderView);
+onChange(renderView);
 (async()=>{
   try{const{moved,compressed}=await hydrateImages(S);if(moved||compressed){if(persist()){if(compressed)toast('已压缩 '+compressed+' 张旧配图，节省存储空间');sync.onLocalChange()}}}catch{}
   renderApp();
