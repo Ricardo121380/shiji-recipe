@@ -34,13 +34,13 @@ dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('pho
 dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
 cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','饮品'],snack:['零食','速食','甜品','饮料'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
-{id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',notes:'煮熟后猫狗都可以少量吃'},
-{id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',notes:''},
-{id:uid(),name:'牛奶',kind:'ingredient',brand:'',flavor:'',category:'乳制品',qty:1,unit:'盒',prodDate:addDays(t,-3),expiryDate:addDays(t,4),lowAt:1,petCat:'care',petDog:'no',notes:'大部分猫狗乳糖不耐受'},
-{id:uid(),name:'鸡胸肉',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:2,unit:'袋',prodDate:addDays(t,-10),expiryDate:addDays(t,-1),lowAt:1,petCat:'ok',petDog:'ok',notes:''},
-{id:uid(),name:'卤味鸭脖',kind:'snack',brand:'周黑鸭',flavor:'甜辣',category:'零食饮料',qty:2,unit:'盒',prodDate:addDays(t,-2),expiryDate:addDays(t,5),lowAt:1,petCat:'no',petDog:'no',notes:''},
+{id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},
+{id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',keep:'室温避光，熟透后冷藏',notes:''},
+{id:uid(),name:'牛奶',kind:'ingredient',brand:'',flavor:'',category:'乳制品',qty:1,unit:'盒',prodDate:addDays(t,-3),expiryDate:addDays(t,4),lowAt:1,petCat:'care',petDog:'no',keep:'冷藏',notes:'大部分猫狗乳糖不耐受'},
+{id:uid(),name:'鸡胸肉',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:2,unit:'袋',prodDate:addDays(t,-10),expiryDate:addDays(t,-1),lowAt:1,petCat:'ok',petDog:'ok',keep:'冷冻保存，吃前冷藏解冻',notes:''},
+{id:uid(),name:'卤味鸭脖',kind:'snack',brand:'周黑鸭',flavor:'甜辣',category:'零食饮料',qty:2,unit:'盒',prodDate:addDays(t,-2),expiryDate:addDays(t,5),lowAt:1,petCat:'no',petDog:'no',keep:'开袋后冷藏',notes:''},
 {id:uid(),name:'猫条',kind:'snack',brand:'伟嘉',flavor:'金枪鱼味',category:'宠物食品',qty:6,unit:'支',prodDate:addDays(t,-20),expiryDate:addDays(t,300),lowAt:2,petCat:'ok',petDog:'care',notes:''}],
-pantryHistory:[{name:'鸡蛋',category:'肉类',unit:'个',shelfDays:20,petCat:'care',petDog:'ok',notes:'煮熟后猫狗都可以少量吃'},{name:'牛奶',category:'乳制品',unit:'盒',shelfDays:7,petCat:'care',petDog:'no',notes:''},{name:'番茄',category:'蔬菜',unit:'个',shelfDays:5,petCat:'na',petDog:'na',notes:''}],
+pantryHistory:[{name:'鸡蛋',category:'肉类',unit:'个',shelfDays:20,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},{name:'牛奶',category:'乳制品',unit:'盒',shelfDays:7,petCat:'care',petDog:'no',keep:'冷藏',notes:''},{name:'番茄',category:'蔬菜',unit:'个',shelfDays:5,petCat:'na',petDog:'na',keep:'室温避光',notes:''}],
 menu:{},log:{},nutrition:{goal:2000},shopping:[],
 daily:[{id:uid(),name:'洗衣液',brand:'蓝月亮',category:'洗护',qty:0.6,unit:'瓶',lowAt:1,notes:''},{id:uid(),name:'厨房纸',category:'纸品',qty:1,unit:'卷',lowAt:2,notes:''},{id:uid(),name:'垃圾袋',category:'清洁用品',qty:10,unit:'只',lowAt:15,notes:''}],
 settings:{lastNotify:'',lastPrepNotify:''}};
@@ -60,7 +60,7 @@ if(!base.prep)base.prep=(r.steps||[]).some(x=>x.prep);
 delete base.specGroupIds;
 return base});
 s.dining=(s.dining||[]).map(d=>({type:'dining',place:'',...d}));
-s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',...p}));
+s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',keep:'',...p}));
 s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};if(!x.board&&base.category&&(s.cats?.daily||[]).includes(base.category))base.board='daily';return base});
 delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
@@ -110,7 +110,7 @@ export const enabledSpecs=r=>(r?.specs||[]).filter(sp=>sp.enabled&&sp.name&&sp.o
 export function pantryMatches(ingName){return S.pantry.filter(p=>p.kind==='ingredient'&&nameMatch(p.name,ingName))}
 export function expiringItems(){return S.pantry.filter(p=>daysUntil(p.expiryDate)<=2).sort((a,b)=>daysUntil(a.expiryDate)-daysUntil(b.expiryDate))}
 export function lowPantry(){return S.pantry.filter(p=>p.lowAt&&Number(p.qty)<=Number(p.lowAt))}
-export function addPantryHistory(item){const h={name:item.name,category:item.category,unit:item.unit,shelfDays:Math.max(1,daysUntil(item.expiryDate)),petCat:item.petCat,petDog:item.petDog,notes:item.notes};S.pantryHistory=[h,...(S.pantryHistory||[]).filter(x=>x.name!==item.name)].slice(0,24)}
+export function addPantryHistory(item){const h={name:item.name,category:item.category,unit:item.unit,shelfDays:Math.max(1,daysUntil(item.expiryDate)),petCat:item.petCat,petDog:item.petDog,keep:item.keep||'',notes:item.notes};S.pantryHistory=[h,...(S.pantryHistory||[]).filter(x=>x.name!==item.name)].slice(0,24)}
 
 // 扣减一个食材（按用量与份数），返回扣减记录用于回退
 export function deductIngredient(ingName,amount,factor=1){const p=pantryMatches(ingName).find(p=>(Number(p.qty)||0)>0);if(!p)return null;const info=parseAmountInfo(amount);const base=info&&(!info.unit||unitMatch(info.unit,p.unit))?info.num:1;const amt=Math.round(base*factor*10)/10;const before=Number(p.qty)||0;p.qty=Math.max(0,Math.round((before-amt)*10)/10);return{pantryId:p.id,name:p.name,amount:Math.min(before,amt),unit:p.unit}}
