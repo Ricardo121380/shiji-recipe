@@ -1,7 +1,0 @@
-name = "shiji-recipe"
-pages_build_output_dir = "dist"
-compatibility_date = "2026-01-01"
-
-[[kv_namespaces]]
-binding = "SYNC_KV"
-id = "2fd805e47e3049acbd82aae0b845adfc"
