@@ -9,7 +9,41 @@ import{renderDining,renderJournal,renderHealth,renderRecommend}from'./life.js';
 import{openSettings}from'./settings.js';
 
 const BUILD_ID=typeof __BUILD_ID__!=='undefined'?__BUILD_ID__:'dev';
-try{const prev=localStorage.getItem('shiji-build');if(prev&&prev!==BUILD_ID){localStorage.setItem('shiji-build',BUILD_ID);location.reload();throw new Error('reload')}localStorage.setItem('shiji-build',BUILD_ID)}catch{}
+function pageUrl(){return new URL(location.href)}
+function pathWith(u){const q=u.searchParams.toString();return u.pathname+(q?`?${q}`:'')+u.hash}
+function stripBuildQuery(){
+  try{
+    const u=pageUrl();
+    if(u.searchParams.get('_b')!==BUILD_ID)return;
+    u.searchParams.delete('_b');
+    history.replaceState(null,'',pathWith(u));
+  }catch{}
+}
+let freshAt=0;
+async function ensureFresh(){
+  if(BUILD_ID==='dev'||import.meta.env.DEV)return;
+  const now=Date.now();
+  if(now-freshAt<15000)return;
+  freshAt=now;
+  try{
+    const r=await fetch(`./version.json?t=${now}`,{cache:'no-store'});
+    if(!r.ok)return;
+    const id=(await r.json()).id;
+    if(!id||id===BUILD_ID){try{sessionStorage.removeItem('shiji-fresh')}catch{}return}
+    const u=pageUrl();
+    if(u.searchParams.get('_b')===id)return;
+    let n=0;try{n=Number(sessionStorage.getItem('shiji-fresh')||0)}catch{}
+    if(n>=2)return;
+    try{sessionStorage.setItem('shiji-fresh',String(n+1));localStorage.setItem('shiji-build',id)}catch{}
+    u.searchParams.set('_b',id);
+    location.replace(pathWith(u));
+  }catch{}
+}
+try{localStorage.setItem('shiji-build',BUILD_ID)}catch{}
+stripBuildQuery();
+ensureFresh();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')ensureFresh()});
+window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();else ensureFresh()});
 
 const NAV=[['#/recipes','book','菜谱'],['#/dining','utensils','外出就餐'],['#/week','calendar','本周菜单'],['#/fridge','fridge','冰箱'],['#/shopping','cart','购买清单'],['#/health','flame','热量记录'],['#/recommend','sparkle','菜品推荐'],['#/journal','grid','就餐记录'],['#/daily','grid','日用品库存']];
 const TITLES=Object.fromEntries(NAV.map(([h,,l])=>[h,l]));
