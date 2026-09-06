@@ -75,8 +75,8 @@ s.menu={[t]:{dinner:raw.filter(r=>r.menu).map(r=>({refType:'recipe',refId:r.id,n
 export function load(){let raw=null;try{raw=localStorage.getItem(KEY)}catch{}
 if(raw){try{const s=JSON.parse(raw);if(Array.isArray(s.recipes)&&Array.isArray(s.pantry))return normalizeState(s)}catch{}}
 try{const arr=JSON.parse(localStorage.getItem(OLD_KEY));if(Array.isArray(arr)&&arr.length){const m=migrateV1();if(m){try{localStorage.setItem(KEY,JSON.stringify(m))}catch{};return m}}}catch{}
-const s=seedState();try{localStorage.setItem(KEY,JSON.stringify(s))}catch{}
-return s}
+const n=normalizeState(seedState());try{localStorage.setItem(KEY,JSON.stringify(n))}catch{}
+return n}
 
 export function normalizeImport(data){try{
 let base=null;
