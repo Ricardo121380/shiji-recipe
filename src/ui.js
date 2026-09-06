@@ -57,30 +57,4 @@ export function fileToDataUrl(input,cb,max=1400,q=0.82){
   };
 }
 
-const FAT=180000;
-const isFat=s=>typeof s==='string'&&s.startsWith('data:image/')&&s.length>FAT;
-async function shrinkOne(url,max){
-  const blob=await(await fetch(url)).blob();
-  const file=new File([blob],'img',{type:blob.type||'image/jpeg'});
-  const next=await compressImage(file,max);
-  return next&&next.length<url.length?next:null;
-}
-
-export async function shrinkStateImages(state){
-  if(!state)return 0;
-  let n=0;
-  const recipes=state.recipes||[];
-  for(const r of recipes){
-    if(isFat(r.image)){
-      try{const next=await shrinkOne(r.image,1400);if(next){r.image=next;n++}}catch{}
-      await new Promise(res=>setTimeout(res,0));
-    }
-    for(const step of r.steps||[]){
-      if(!isFat(step.image))continue;
-      try{const next=await shrinkOne(step.image,800);if(next){step.image=next;n++}}catch{}
-      await new Promise(res=>setTimeout(res,0));
-    }
-  }
-  return n;
-}
 export function confirmDlg(message){return new Promise(res=>{if(window.confirm(message))res(true);else res(false)})}

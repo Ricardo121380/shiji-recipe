@@ -36,5 +36,5 @@ npm run deploy                    # 构建并发布到 Cloudflare Pages
 
 - 通知基于浏览器 Notification API：页面打开时检查（临期提醒、前一天 18:00 备菜提醒）；iOS 需将网页添加到主屏幕。
 - 邮件发送通过 `mailto:` 调起本机邮件应用，静态网页无法后台直接发送邮件。
-- 图片上传自动压缩（主图最长边 1400px、步骤图 800px）后以 dataURL 存入 localStorage；空间不足时提示并回滚。
+- 图片上传自动压缩（主图最长边 1400px、步骤图 800px）后存入本机 IndexedDB，菜谱 JSON 仍在 localStorage；导出备份 / 云同步时会把配图内联进 JSON，方便搬家。IndexedDB 不可用时回退为内联存储。
 - 初次使用自带示例菜谱、冰箱、日用品和外出记录，可自行删除。

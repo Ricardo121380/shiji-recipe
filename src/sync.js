@@ -1,6 +1,6 @@
 // 饭Fun 云同步引擎：同步码绑定后自动推送/拉取，冲突时由用户选择
 import{S,normalizeImport,persist,toast}from'./store.js';
-import{shrinkStateImages}from'./ui.js';
+import{hydrateImages,cloneWithInlineImages}from'./images.js';
 const AT='shiji-sync-at';
 let dirty=false,timer=null,running=false,started=false;
 export const apiBase=()=>location.hostname.endsWith('pages.dev')?'':'https://shiji-recipe.pages.dev';
@@ -19,10 +19,12 @@ export const generateCode=()=>'fanfun-'+[...crypto.getRandomValues(new Uint8Arra
 export function markDirty(){if(!isBound()||isPaused())return;dirty=true;clearTimeout(timer);timer=setTimeout(()=>tick(),4000)}
 async function fetchMeta(){const r=await fetch(apiBase()+'/api/sync/'+getCode());if(!r.ok)throw new Error('同步服务暂不可用');return r.json()}
 async function doPull(meta){const next=normalizeImport(meta.data);if(!next)throw new Error('云端数据格式异常');
-Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);persist();
+Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);
+const{compressed}=await hydrateImages(S);
+persist();
 localStorage.setItem(AT,meta.updatedAt);dirty=false;
-shrinkStateImages(S).then(async n=>{if(!n)return;if(!persist())return;toast('已压缩云端同步下来的 '+n+' 张大图');dirty=true;try{await doPush()}catch{}})}
-async function doPush(){const body=JSON.stringify({version:2,state:S,pushedAt:new Date().toISOString()});
+if(compressed){toast('已压缩云端同步下来的 '+compressed+' 张大图');dirty=true;try{await doPush()}catch{}}}
+async function doPush(){const state=await cloneWithInlineImages(S);const body=JSON.stringify({version:2,state,pushedAt:new Date().toISOString()});
 if(body.length>8*1024*1024)throw new Error('数据过大，请减少配图后重试');
 const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Content-Type':'application/json'},body});
 if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false}

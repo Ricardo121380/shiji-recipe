@@ -1,5 +1,6 @@
 import{S,today,addDays,MEALS,fmtDate,daysUntil,onChange,persist,normalizeImport,toast,prepItemsFor,prepUpcoming,onLocalChange as store_onLocalChange,defrostItemsFor,defrostNames}from'./store.js';
-import{ico,esc,shrinkStateImages}from'./ui.js';
+import{ico,esc}from'./ui.js';
+import{hydrateImages,cloneWithInlineImages}from'./images.js';
 import*as sync from'./sync.js';
 window.__syncDebug=sync;
 import{render as renderRecipes,setType}from'./recipes.js';
@@ -15,11 +16,9 @@ const TITLES=Object.fromEntries(NAV.map(([h,,l])=>[h,l]));
 
 function route(){const h=location.hash||'#/recipes';return NAV.some(n=>n[0]===h)?h:'#/recipes'}
 
-function exportBackup(){const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),state:S},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`饭Fun-备份-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+async function exportBackup(){try{const state=await cloneWithInlineImages(S);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),state},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`饭Fun-备份-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}catch{toast('导出备份失败')}}
 
-async function maybeShrinkImages(msg){try{const n=await shrinkStateImages(S);if(!n)return;if(persist()){toast(msg.replace('{n}',String(n)));sync.onLocalChange()}else toast('配图已压缩，但浏览器空间仍不足，请再导出备份')}catch{}}
-
-function importBackup(){const inp=document.createElement('input');inp.type='file';inp.accept='application/json,.json';inp.onchange=async()=>{const f=inp.files[0];if(!f)return;try{const next=normalizeImport(JSON.parse(await f.text()));if(!next){toast('备份文件格式不正确，未导入');return}if(!window.confirm(`导入将覆盖当前的全部数据（共 ${next.recipes.length} 条菜谱记录）。确定继续？`))return;Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);if(persist()){toast('备份已导入');maybeShrinkImages('备份里有 {n} 张大图已压缩')}else toast('导入失败：浏览器空间不足')}catch{toast('读取备份失败，请确认选择的是 JSON 备份文件')}};inp.click()}
+function importBackup(){const inp=document.createElement('input');inp.type='file';inp.accept='application/json,.json';inp.onchange=async()=>{const f=inp.files[0];if(!f)return;try{const next=normalizeImport(JSON.parse(await f.text()));if(!next){toast('备份文件格式不正确，未导入');return}if(!window.confirm(`导入将覆盖当前的全部数据（共 ${next.recipes.length} 条菜谱记录）。确定继续？`))return;Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);await hydrateImages(S);if(persist()){toast('备份已导入');renderApp()}else toast('导入失败：浏览器空间不足')}catch{toast('读取备份失败，请确认选择的是 JSON 备份文件')}};inp.click()}
 
 function showSync(refresh=true){const dlg=document.querySelector('#dialog-root');const bound=sync.isBound();
 if(!bound){dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>云端同步</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p style="margin-top:0">绑定同步码后，本机数据自动与云端保持一致——其他设备输入同一个码即可互通。</p><label class="field">同步码 <span class="optional">建议使用生成的随机码，切勿使用简单词</span><input id="sync-code" maxlength="48" placeholder="例如：fanfun-8f3k2m9x"></label><p class="muted">同步码是数据的唯一凭证，请勿泄露；所有设备的饮食数据将存入 Cloudflare。</p></div><div class="modal-footer"><span></span><div><button class="secondary" id="gen-code">生成随机码</button><button class="primary" id="bind-go">绑定并开始同步</button></div></div></div>`}
@@ -61,10 +60,12 @@ function prepBellCount(){return prepUpcoming(2).length}
 
 window.addEventListener('hashchange',renderApp);
 onChange(renderApp);
-renderApp();
-notifyExpiring();
-notifyPrep();
-sync.start();
-store_onLocalChange(()=>sync.onLocalChange());
-setInterval(()=>{notifyPrep();dailyReminderCheck();morningDefrostCheck();notifyExpiring()},60000);
-setTimeout(()=>maybeShrinkImages('已压缩 {n} 张旧配图，节省存储空间'),800);
+(async()=>{
+  try{const{moved,compressed}=await hydrateImages(S);if(moved||compressed){if(persist()){if(compressed)toast('已压缩 '+compressed+' 张旧配图，节省存储空间');sync.onLocalChange()}}}catch{}
+  renderApp();
+  notifyExpiring();
+  notifyPrep();
+  sync.start();
+  store_onLocalChange(()=>sync.onLocalChange());
+  setInterval(()=>{notifyPrep();dailyReminderCheck();morningDefrostCheck();notifyExpiring()},60000);
+})();

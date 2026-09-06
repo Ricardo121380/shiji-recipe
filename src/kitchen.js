@@ -1,6 +1,7 @@
 // 厨房板块：本周菜单 / 冰箱 / 购买清单 / 日用品库存
 import{S,update,uid,today,addDays,mondayOf,fmtDate,weekday,daysUntil,fmtTime,MEALS,PET,EXPIRY_FILTERS,toast,addToMenu,removeMenuItem,setItemDone,menuItems,refOf,findRecipe,findDining,expiringItems,lowPantry,addPantryHistory,generateShopping,pushToShopping,matchRecipes,itemSpecText,refHasPrep,refNeedsDefrost,enabledSpecs,prepItemsFor,prepUpcoming,defrostItemsFor,dayIntake,parseAmountInfo}from'./store.js';
 import{ico,esc}from'./ui.js';
+import{imgSrc}from'./images.js';
 import{openSettings}from'./settings.js';
 import{selectRecipe}from'./recipes.js';
 
@@ -26,7 +27,7 @@ const close=()=>dlg.close();dlg.querySelectorAll('[data-close]').forEach(b=>b.on
 const list=dlg.querySelector('#pick-list'),search=dlg.querySelector('#pick-search');
 const draw=()=>{dlg.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));
 const src=(tab==='dining'?S.dining:S.recipes.filter(r=>r.type===tab)).filter(x=>x.name.toLowerCase().includes(q)||tab==='dining'&&(x.place||'').toLowerCase().includes(q));
-list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}${x.calories?` · ${x.calories} 千卡/份`:''}</small></span>${ico('plus',16)}</button>`).join('')||'<p class="muted" style="padding:20px">没有匹配的记录</p>';
+list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(imgSrc(x.image))}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}${x.calories?` · ${x.calories} 千卡/份`:''}</small></span>${ico('plus',16)}</button>`).join('')||'<p class="muted" style="padding:20px">没有匹配的记录</p>';
 list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const ref=tab==='dining'?findDining(b.dataset.id):findRecipe(b.dataset.id);if(!ref)return;dlg.close();orderDialog(ref,{date,meal});onDone?.()})};
 dlg.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});search.oninput=()=>{q=search.value.toLowerCase();draw()};draw()}
 
@@ -40,7 +41,7 @@ dlg.querySelectorAll('[data-spec]').forEach(box=>{const gname=box.dataset.spec;b
 let tab='dish';const list=dlg.querySelector('#em-list');
 const drawList=()=>{dlg.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));
 const src=(tab==='dining'?S.dining:S.recipes.filter(r=>r.type===tab)).filter(x=>x.id!==item.refId);
-list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}</small></span></button>`).join('')||'<p class="muted" style="padding:12px">没有可选记录</p>';
+list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(imgSrc(x.image))}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.place,x.category].filter(Boolean).join(' · '))}</small></span></button>`).join('')||'<p class="muted" style="padding:12px">没有可选记录</p>';
 list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const ref2=tab==='dining'?findDining(b.dataset.id):findRecipe(b.dataset.id);if(!ref2)return;update(()=>{const it=menuItems(date,meal)[idx];if(!it)return;if(it.done)setItemDone(date,meal,idx,false);it.refType=ref2.type==='dining'?'dining':'recipe';it.refId=ref2.id;it.name=ref2.name;it.deducted=[];if(!ref2.specGroupIds?.length)it.specs={}});dlg.close();toast('已更换菜品');renderWeek(V())})};
 dlg.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;drawList()});drawList();
 (dlg.querySelector('#em-save')??document.createElement('button')).onclick=()=>{update(()=>{const it=menuItems(date,meal)[idx];if(!it)return;const wasDone=it.done;const newQty=qty,newSpecs={...specs};if(wasDone)setItemDone(date,meal,idx,false);it.qty=newQty;it.specs=newSpecs;it.note=ref?.type==='dining'?dlg.querySelector('#em-note')?.value.trim()||'':it.note;if(wasDone)setItemDone(date,meal,idx,true)});dlg.close();toast('已更新');renderWeek(V())}}
@@ -81,7 +82,7 @@ mount.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(window.confirm
 mount.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>selectRecipe(b.dataset.goto));
 mount.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>orderDialog(findRecipe(b.dataset.order)))}
 
-function matchCard(r,hit){return`<article class="recipe-card"><button class="card-main" data-goto="${r.id}"><div class="card-image">${r.image?`<img src="${esc(r.image)}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category||'')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(hit.map(p=>p.name).join(' · '))}</p><div class="card-meta"><span>${ico('clock',12)} ${fmtTime(r)}</span>${r.calories?`<span>${ico('flame',12)} ${r.calories} 千卡</span>`:''}</div></div></button><button class="favorite" data-order="${r.id}" aria-label="点菜">${ico('plus',15)}</button></article>`}
+function matchCard(r,hit){return`<article class="recipe-card"><button class="card-main" data-goto="${r.id}"><div class="card-image">${r.image?`<img src="${esc(imgSrc(r.image))}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category||'')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(hit.map(p=>p.name).join(' · '))}</p><div class="card-meta"><span>${ico('clock',12)} ${fmtTime(r)}</span>${r.calories?`<span>${ico('flame',12)} ${r.calories} 千卡</span>`:''}</div></div></button><button class="favorite" data-order="${r.id}" aria-label="点菜">${ico('plus',15)}</button></article>`}
 function petBadge(icon,v){if(!v||v==='na')return'';return`<span class="badge pet-${v}">${icon} ${PET[v]}</span>`}
 
 export function foodDialog(item){const dlg=document.querySelector('#dialog-root');const isNew=!item;
