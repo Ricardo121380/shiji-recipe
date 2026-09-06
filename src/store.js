@@ -29,10 +29,11 @@ dish('番茄罗勒意面','主食',0,25,2,'酸甜的番茄遇上新鲜罗勒。'
 dish('牛油果鲜虾沙拉','轻食',0,15,1,'一碗清爽，也是一份认真照顾自己的心意。',seedPhoto('photo-1512621776951-a57141f2eefd'),[{name:'牛油果',amount:'1个',role:'main'},{name:'虾仁',amount:'100g',role:'main'},{name:'生菜',amount:'适量',role:'side'},{name:'小番茄',amount:'6个',role:'side'},{name:'柠檬',amount:'半个',role:'season'}],['洗净蔬菜并沥干，牛油果切片，小番茄对半切。','虾仁煮熟，和蔬菜放入碗中。','加入橄榄油、柠檬汁和少许盐，轻轻拌匀。'],false,320,[{name:'忌口',options:['无海鲜','无花生'],enabled:true}]),
 dish('香煎三文鱼','家常菜',0,20,2,'外皮微脆，内里柔嫩。',seedPhoto('photo-1467003909585-2f8a72700288'),[{name:'三文鱼',amount:'300g',role:'main'},{name:'柠檬',amount:'半个',role:'season'},{name:'芦笋',amount:'6根',role:'side'},{name:'盐',amount:'适量',role:'season'}],['三文鱼擦干水分，两面撒盐和黑胡椒。','平底锅加油，鱼皮朝下煎至金黄，翻面继续煎熟。','芦笋煎熟配在旁边，挤上柠檬汁。'],true,410,[],true,true),
 dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('photo-1528207776546-365bb710ee93'),[{name:'低筋面粉',amount:'150g',role:'main'},{name:'鸡蛋',amount:'1个',role:'main'},{name:'牛奶',amount:'150ml',role:'main'},{name:'泡打粉',amount:'4g',role:'season'},{name:'蜂蜜',amount:'适量',role:'side'}],['面粉、泡打粉过筛，与鸡蛋和牛奶混合成面糊。','不粘锅小火预热，倒入面糊，表面冒泡后翻面。','煎至两面金黄，搭配水果和蜂蜜。'],false,380),
+{...dish('蜂蜜柠檬气泡水','茶饮',0,8,1,'冰爽气泡配上蜂蜜柠檬，元气一整天。',seedPhoto('photo-1556679343-c7306c1976bc'),[{name:'柠檬',amount:'半个',role:'main'},{name:'蜂蜜',amount:'2勺',role:'main'},{name:'气泡水',amount:'1瓶',role:'main'},{name:'冰块',amount:'适量',role:'side'},{name:'薄荷叶',amount:'点缀',role:'side'}],['柠檬切片，与薄荷叶放入杯中。','倒入气泡水，加入蜂蜜搅匀。','加冰块即可享用。'],false,120,[{name:'甜度',options:['正常糖','少糖','无糖'],enabled:true}]),type:'drink'},
 {...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180),type:'snack'},
 {...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}]),type:'snack'}],
 dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
-cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','饮品'],snack:['零食','速食','甜品','饮料'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
+cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点'],snack:['零食','速食','甜品','饮料'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
 {id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},
 {id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',keep:'室温避光，熟透后冷藏',notes:''},
@@ -95,7 +96,13 @@ return s}catch{return null}}
 export let S=load();
 const listeners=new Set();
 export function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch{toast('保存失败：浏览器空间不足，请清理图片或导出备份。');return false}}
-export function update(fn){const backup=JSON.stringify(S);fn();if(persist()){listeners.forEach(f=>f());return true}S=JSON.parse(backup);return false}
+export function update(fn){const backup=JSON.stringify(S);fn();if(S.settings)S.settings.updatedAt=Date.now();if(persist()){listeners.forEach(f=>f());return true}S=JSON.parse(backup);return false}
+
+// —— 云同步（Cloudflare KV · 同步码） ——
+export const SYNC_API='https://shiji-recipe.pages.dev/api/sync';
+export function newSyncCode(){const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:8},()=>abc[Math.floor(Math.random()*abc.length)]).join('')}
+export async function uploadSync(code){const res=await fetch(`${SYNC_API}?code=${encodeURIComponent(code)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:2,updatedAt:S.settings?.updatedAt||Date.now(),state:S})});if(!res.ok)throw new Error('HTTP '+res.status);return res.json()}
+export async function downloadSync(code){const res=await fetch(`${SYNC_API}?code=${encodeURIComponent(code)}`);if(res.status===404)return null;if(!res.ok)throw new Error('HTTP '+res.status);return normalizeImport(await res.json())}
 export function onChange(fn){listeners.add(fn)}
 export function toast(msg){const el=document.querySelector('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3000)}
 
