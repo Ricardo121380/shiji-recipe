@@ -40,7 +40,7 @@ if(cloudNewer&&localDirty){const choice=await askConflict(meta.updatedAt);
 if(choice==='cloud'){await doPull(meta);toast('已用云端数据覆盖本机');return'pulled'}
 if(choice==='local'){await doPush();toast('已用本机数据覆盖云端');return'pushed'}
 return'cancelled'}
-if(cloudNewer&&!meta.data){dirty=true;await doPush();return'pushed'}
+if(!meta.data){dirty=true;await doPush();return'pushed'}
 if(cloudNewer){await doPull(meta);toast('已自动同步云端数据');return'pulled'}
 if(localDirty){await doPush();return'pushed'}
 return manual?'已是最新':'latest'
