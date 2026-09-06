@@ -51,16 +51,17 @@ const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Con
 if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false}
 function fillDialog(html){const d=document.querySelector('#dialog-root');d.innerHTML=html;if(!d.open)d.showModal();return d}
 function askOverwrite(title,body,goLabel){return new Promise(res=>{
-  const dlg=fillDialog(`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC</span><h2>${title}</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}<p class="muted">这是整份覆盖，不是两边合并。不确定时先取消，去导出备份。</p></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="c-go">${goLabel}</button></div></div></div>`);
-  dlg.querySelector('[data-close]').onclick=()=>{dlg.close();res(false)};
-  dlg.querySelector('#c-go').onclick=()=>{dlg.close();res(true)};
+  const dlg=fillDialog(`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC</span><h2>${title}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}<p class="muted">这是整份覆盖，不是两边合并。不确定时先取消，去导出备份。</p></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="button" class="primary" id="c-go">${goLabel}</button></div></div></div>`);
+  dlg.querySelector('[data-close]').onclick=()=>res(false);
+  dlg.querySelector('#c-go').onclick=()=>res(true);
 })}
 export async function inspect(){
   if(!isBound())return null;
   return snapshot(await fetchMeta());
 }
 export async function pushNow(){
-  if(!isBound()||running)return;
+  if(!isBound())return;
+  if(running){toast('正在处理，请稍候');return}
   running=true;try{
     const d=snapshot(await fetchMeta());
     const ok=await askOverwrite('上传到云端',d.empty
@@ -73,7 +74,8 @@ export async function pushNow(){
   }catch(e){toast(e&&e.message?e.message:'上传失败');return'error'}finally{running=false}
 }
 export async function pullNow(){
-  if(!isBound()||running)return;
+  if(!isBound())return;
+  if(running){toast('正在处理，请稍候');return}
   running=true;try{
     const d=snapshot(await fetchMeta());
     if(d.empty){toast('云端还没有数据。请先在有完整记录的设备上点「上传到云端」');return'empty'}
