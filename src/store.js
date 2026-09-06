@@ -96,7 +96,9 @@ return s}catch{return null}}
 export let S=load();
 const listeners=new Set();
 export function persist(){try{localStorage.setItem(KEY,JSON.stringify(S));return true}catch{toast('保存失败：浏览器空间不足，请清理图片或导出备份。');return false}}
-export function update(fn){const backup=JSON.stringify(S);fn();if(S.settings)S.settings.updatedAt=Date.now();if(persist()){listeners.forEach(f=>f());return true}S=JSON.parse(backup);return false}
+const localChangeFns=new Set();
+export function onLocalChange(fn){localChangeFns.add(fn)}
+export function update(fn){const backup=JSON.stringify(S);fn();if(S.settings)S.settings.updatedAt=Date.now();if(persist()){listeners.forEach(f=>f());localChangeFns.forEach(f=>f());return true}S=JSON.parse(backup);return false}
 
 // —— 云同步（Cloudflare KV · 同步码） ——
 export const SYNC_API='https://shiji-recipe.pages.dev/api/sync';
