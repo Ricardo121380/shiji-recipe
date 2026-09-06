@@ -21,8 +21,9 @@ async function doPull(meta){const next=normalizeImport(meta.data);if(!next)throw
 Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);persist();
 localStorage.setItem(AT,meta.updatedAt);dirty=false}
 async function doPush(){const body=JSON.stringify({version:2,state:S,pushedAt:new Date().toISOString()});
+if(body.length>8*1024*1024)throw new Error('数据过大，请减少配图后重试');
 const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Content-Type':'application/json'},body});
-if(!r.ok)throw new Error('上传失败（'+r.status+'）');const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false}
+if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false}
 function askConflict(updatedAt){return new Promise(res=>{const d=document.querySelector('#dialog-root');
 d.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC CONFLICT</span><h2>同步冲突</h2></div><button class="icon-button" data-close aria-label="关闭">${''}</button></div><div class="editor-content"><p>云端有其他设备推送的新数据（${String(updatedAt).slice(0,10)}），本机也有未上传的改动。请选择保留哪一份：</p><p class="muted">另一台设备的数据会被覆盖，建议先在另一台设备上导出备份。</p></div><div class="modal-footer"><span></span><div><button class="secondary" id="c-local">保留本机，覆盖云端</button><button class="primary" id="c-cloud">使用云端，覆盖本机</button></div></div></div>`;
 d.showModal();d.querySelector('#c-cloud').onclick=()=>{d.close();res('cloud')};d.querySelector('#c-local').onclick=()=>{d.close();res('local')}})}

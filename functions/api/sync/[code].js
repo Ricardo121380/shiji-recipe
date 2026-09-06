@@ -22,7 +22,7 @@ export async function onRequestPut({ request, params, env }) {
   const code = String(params.code || '').toLowerCase();
   if (!valid(code)) return json({ error: '同步码格式不正确' }, 400);
   const body = await request.text();
-  if (!body || body.length > 3 * 1024 * 1024) return json({ error: '数据过大' }, 413);
+  if (!body || body.length > 8 * 1024 * 1024) return json({ error: '数据过大，请减少配图后重试' }, 413);
   try { JSON.parse(body) } catch { return json({ error: '数据格式错误' }, 400); }
   const updatedAt = new Date().toISOString();
   await env.SYNC_KV.put('sync:' + code, body, { metadata: { updatedAt } });
