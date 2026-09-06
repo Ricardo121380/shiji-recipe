@@ -42,7 +42,7 @@ pantry:[
 {id:uid(),name:'卤味鸭脖',kind:'snack',brand:'周黑鸭',flavor:'甜辣',category:'零食饮料',qty:2,unit:'盒',prodDate:addDays(t,-2),expiryDate:addDays(t,5),lowAt:1,petCat:'no',petDog:'no',keep:'开袋后冷藏',notes:''},
 {id:uid(),name:'猫条',kind:'snack',brand:'伟嘉',flavor:'金枪鱼味',category:'宠物食品',qty:6,unit:'支',prodDate:addDays(t,-20),expiryDate:addDays(t,300),lowAt:2,petCat:'ok',petDog:'care',notes:''}],
 pantryHistory:[{name:'鸡蛋',category:'肉类',unit:'个',shelfDays:20,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},{name:'牛奶',category:'乳制品',unit:'盒',shelfDays:7,petCat:'care',petDog:'no',keep:'冷藏',notes:''},{name:'番茄',category:'蔬菜',unit:'个',shelfDays:5,petCat:'na',petDog:'na',keep:'室温避光',notes:''}],
-menu:{},log:{},nutrition:{goal:2000},shopping:[],
+menu:{},log:{},manualLog:{},nutrition:{goal:2000},shopping:[],
 daily:[{id:uid(),name:'洗衣液',brand:'蓝月亮',category:'洗护',qty:0.6,unit:'瓶',lowAt:1,notes:''},{id:uid(),name:'厨房纸',category:'纸品',qty:1,unit:'卷',lowAt:2,notes:''},{id:uid(),name:'垃圾袋',category:'清洁用品',qty:10,unit:'只',lowAt:15,notes:''}],
 settings:{lastNotify:'',lastPrepNotify:''}};
 }
@@ -66,7 +66,7 @@ s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};i
 delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
 for(const g of Object.keys(def.cats))if(!Array.isArray(s.cats[g])||!s.cats[g].length)s.cats[g]=def.cats[g];
-s.menu=s.menu||{};s.log=s.log||{};
+s.menu=s.menu||{};s.log=s.log||{};s.manualLog=s.manualLog||{};
 for(const d of Object.keys(s.menu))for(const m of Object.keys(s.menu[d]))s.menu[d][m]=(s.menu[d][m]||[]).map(it=>({qty:1,specs:{},note:'',deducted:[],...it}));
 return s}
 
@@ -148,7 +148,12 @@ export function prepUpcoming(days=7){const out=[];for(let i=0;i<days;i++){const 
 // —— 已吃记录：以本周菜单勾选状态为唯一事实来源，随时刷新 ——
 export function derivedLog(){const out={};for(const d of Object.keys(S.menu))for(const m of Object.keys(S.menu[d]))for(const it of S.menu[d][m]){if(!it.done)continue;const r=refOf(it);(out[d]=out[d]||[]).push({meal:m,name:it.name,refId:it.refId,refType:it.refType,calories:Math.round((Number(r?.calories)||0)*(it.qty||1)),qty:it.qty||1,specs:it.specs||{}})}
 return out}
-export function dayIntake(date){return(derivedLog()[date]||[]).reduce((n,e)=>n+(Number(e.calories)||0),0)}
+export function addManualEntry(date,meal,name,calories){(S.manualLog[date]=S.manualLog[date]||[]).push({id:uid(),meal,name,calories:Math.round(Number(calories)||0)});pruneManual()}
+export function removeManualEntry(date,id){if(S.manualLog[date])S.manualLog[date]=S.manualLog[date].filter(e=>e.id!==id);if(!S.manualLog[date].length)delete S.manualLog[date]}
+export function manualEntries(date){return S.manualLog[date]||[]}
+export function dayEntries(date){return[...(derivedLog()[date]||[]),...manualEntries(date).map(e=>({...e,specs:{},qty:1}))]}
+function pruneManual(){const cur=monthOf(today()),prev=monthOf(addDays(cur+'-01',-1));for(const d of Object.keys(S.manualLog))if(monthOf(d)!==cur&&monthOf(d)!==prev)delete S.manualLog[d]}
+export function dayIntake(date){return dayEntries(date).reduce((n,e)=>n+(Number(e.calories)||0),0)}
 
 // —— 购买清单 ——
 export function pushToShopping(name,amount='',category='',board='food'){if(S.shopping.some(s=>s.name===name&&s.board===board))return;S.shopping.push({id:uid(),name,amount,checked:false,category,board})}
