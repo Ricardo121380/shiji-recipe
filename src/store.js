@@ -1,4 +1,4 @@
-// 食记数据层：单一状态对象 + localStorage 持久化 + 兼容迁移
+// 饭Fun 数据层：单一状态对象 + localStorage 持久化 + 兼容迁移
 const KEY='shiji-state-v2', OLD_KEY='shiji-recipes-v1';
 export const MEALS=[['breakfast','早餐'],['lunch','午餐'],['dinner','晚餐'],['extra','加餐']];
 export const PET={ok:'能吃',care:'谨慎',no:'不能',na:'—'};
@@ -100,11 +100,6 @@ const localChangeFns=new Set();
 export function onLocalChange(fn){localChangeFns.add(fn)}
 export function update(fn){const backup=JSON.stringify(S);fn();if(S.settings)S.settings.updatedAt=Date.now();if(persist()){listeners.forEach(f=>f());localChangeFns.forEach(f=>f());return true}S=JSON.parse(backup);return false}
 
-// —— 云同步（Cloudflare KV · 同步码） ——
-export const SYNC_API='https://shiji-recipe.pages.dev/api/sync';
-export function newSyncCode(){const abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:8},()=>abc[Math.floor(Math.random()*abc.length)]).join('')}
-export async function uploadSync(code){const res=await fetch(`${SYNC_API}?code=${encodeURIComponent(code)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:2,updatedAt:S.settings?.updatedAt||Date.now(),state:S})});if(!res.ok)throw new Error('HTTP '+res.status);return res.json()}
-export async function downloadSync(code){const res=await fetch(`${SYNC_API}?code=${encodeURIComponent(code)}`);if(res.status===404)return null;if(!res.ok)throw new Error('HTTP '+res.status);return normalizeImport(await res.json())}
 export function onChange(fn){listeners.add(fn)}
 export function toast(msg){const el=document.querySelector('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3000)}
 

@@ -38,7 +38,7 @@ dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close())}
 function renderApp(){const r=route();
 document.querySelector('#app').innerHTML=`
 <aside class="sidebar"><a class="brand" href="#/recipes"><span class="brand-symbol">${ico('bowl',26)}</span><span>饭Fun<span class="brand-en">好好吃饭小助手</span></span></a><div class="space-label">我的厨房</div><nav>${NAV.map(([h,icon,label])=>`<a class="nav-item ${r===h?'active':''}" href="${h}">${ico(icon)}<span>${label}</span></a>`).join('')}</nav><div class="sidebar-note"><span class="little-sprig">${ico('bowl')}</span><strong>好好吃饭，好好生活。</strong><p>菜谱、菜单、冰箱和热量，<br>都在这里慢慢积累。</p></div><div class="sidebar-bottom"><span class="avatar">我</span><div>本地保存<small>数据仅存于当前浏览器</small></div><span class="status-dot"></span></div></aside>
-<div class="workspace"><header class="topbar"><div class="breadcrumb">我的厨房 <span>/</span> ${TITLES[r]}</div><div class="top-actions"><button class="text-button" id="notify">${ico('bell',15)}${prepBellCount()?`<span class="bell-badge">${prepBellCount()}</span>`:''} 提醒</button><span class="top-divider"></span><button class="text-button" id="cats">${ico('settings',15)} 分类</button><span class="top-divider"></span><button class="text-button" id="cloud">${ico('cloud',15)} 云同步</button><span class="top-divider"></span><button class="text-button" id="cloud">${ico('cloud',15)} 云同步</button><span class="top-divider"></span><button class="text-button" id="import">导入备份</button><span class="top-divider"></span><button class="text-button" id="export">导出备份</button></div></header><main id="view"></main></div>`;
+<div class="workspace"><header class="topbar"><div class="breadcrumb">我的厨房 <span>/</span> ${TITLES[r]}</div><div class="top-actions"><button class="text-button" id="notify">${ico('bell',15)}${prepBellCount()?`<span class="bell-badge">${prepBellCount()}</span>`:''} 提醒</button><span class="top-divider"></span><button class="text-button" id="cats">${ico('settings',15)} 分类</button><span class="top-divider"></span><button class="text-button" id="cloud">${ico('cloud',15)} 云同步</button><span class="top-divider"></span><button class="text-button" id="import">导入备份</button><span class="top-divider"></span><button class="text-button" id="export">导出备份</button></div></header><main id="view"></main></div>`;
 const view=document.querySelector('#view');
 if(r==='#/recipes')renderRecipes(view);
 else if(r==='#/week')renderWeek(view);
@@ -50,7 +50,6 @@ else if(r==='#/health')renderHealth(view);
 else if(r==='#/recommend')renderRecommend(view);
 else if(r==='#/daily')renderDaily(view);
 (document.querySelector('#export')??document.createElement('button')).onclick=exportBackup;
-(document.querySelector('#cloud')??document.createElement('button')).onclick=()=>showSync();
 (document.querySelector('#cloud')??document.createElement('button')).onclick=()=>showSync();
 (document.querySelector('#import')??document.createElement('button')).onclick=importBackup;
 (document.querySelector('#cats')??document.createElement('button')).onclick=()=>openSettings();
@@ -66,4 +65,4 @@ notifyPrep();
 sync.start();
 store_onLocalChange(()=>sync.onLocalChange());
 setInterval(()=>{notifyPrep();dailyReminderCheck();morningDefrostCheck();notifyExpiring()},60000);
-if('Notification'in window&&Notification.permission==='default')setTimeout(()=>{if(confirm('想让食记在食材临期、需要提前备菜时弹窗提醒吗？'))requestNotify()},1500);
+if('Notification'in window&&Notification.permission==='default')setTimeout(()=>{if(confirm('想让饭Fun在食材临期、需要提前备菜时弹窗提醒吗？'))requestNotify()},1500);
