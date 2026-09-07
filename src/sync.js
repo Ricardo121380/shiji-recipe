@@ -1,4 +1,4 @@
-// 饭Fun 云同步：整份快照。上传/下载由用户点选；自动同步只在云端未更新时备份本机改动，从不自动覆盖本机
+// 饭Fun 云同步：本机仍是整份状态；云端按记录写入 D1，配图按哈希存 R2。上传/下载由用户点选，不自动合并
 import{S,normalizeImport,persist,toast,notify}from'./store.js';
 import{hydrateImages,liveImageIds,hasInlineImages,readImageBlob,saveImageBlob,canonicalizeImages,localImageIds}from'./images.js';
 import{ico}from'./ui.js';
@@ -36,8 +36,8 @@ export function planLabel(d){
   if(!d)return '';
   if(d.empty)return `云端还是空的。点「上传到云端」会把本机 ${d.localN} 道菜谱存上去。`;
   if(d.cloudNewer)return `云端较新（${d.cloudN} 道，${stamp(d.meta.updatedAt)}）。若其他设备改过，请先「下载到本机」；本机 ${d.localN} 道${d.localDirty?'，且有未上传改动':''}。`;
-  if(d.localDirty)return `本机有未上传改动（${d.localN} 道）。点「上传到云端」会覆盖云端目前的 ${d.cloudN} 道。`;
-  return `两边看起来一致。上传会用本机 ${d.localN} 道覆盖云端；下载会用云端 ${d.cloudN} 道覆盖本机。不会自动合并。`;
+  if(d.localDirty)return `本机有未上传改动（${d.localN} 道）。点「上传到云端」会按本机记录更新云端：删掉的菜谱会从云端去掉，没有再被引用的配图也会清掉。`;
+  return `两边看起来一致。上传按本机记录更新云端（含删除）；下载用云端覆盖本机。不会自动合并。`;
 }
 async function fetchJson(path){
   const ctrl=new AbortController();
@@ -98,7 +98,9 @@ async function pushImages(ids){
 }
 async function remoteImageIds(){
   const light=await fetchMeta(true);
-  if(light.empty||light.bulky||Number(light.version||0)<3)return new Set();
+  if(light.empty)return new Set();
+  if(Array.isArray(light.imageIds))return new Set(light.imageIds);
+  if(light.bulky||Number(light.version||0)<3)return new Set();
   const full=await fetchMeta(false);
   return new Set(full.data?.imageIds||[]);
 }
@@ -128,15 +130,18 @@ async function doPush(){
   if(missing.length)toast('正在上传新增配图（'+missing.length+' 张'+(ids.length>missing.length?'，已有 '+(ids.length-missing.length)+' 张跳过':'')+'）…');
   else if(ids.length)toast('配图均已在云端，只更新菜谱数据…');
   await pushImages(missing);
-  const body=JSON.stringify({version:4,state,imageIds:ids,pushedAt:new Date().toISOString()});
+  const body=JSON.stringify({version:5,state,imageIds:ids,pushedAt:new Date().toISOString()});
   if(body.length>8*1024*1024)throw new Error('数据过大，请减少配图后重试');
   const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Content-Type':'application/json'},body});
-  if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');
-  const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false;
+  let j=null;try{j=await r.json()}catch{}
+  if(!r.ok)throw new Error((j&&j.error)||(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）'));
+  if(!j||!j.updatedAt)throw new Error('上传成功但云端未返回确认');
+  localStorage.setItem(AT,j.updatedAt);dirty=false;
+  snapshot({updatedAt:j.updatedAt,recipes:j.recipes,empty:false,version:j.version,store:j.store||'d1'});
 }
 function fillDialog(html){const d=document.querySelector('#dialog-root');d.innerHTML=html;if(!d.open)d.showModal();return d}
 function askOverwrite(title,body,goLabel){return new Promise(res=>{
-  const dlg=fillDialog(`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC</span><h2>${title}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}<p class="muted">这是整份覆盖，不是两边合并。不确定时先取消，去导出备份。</p></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="button" class="primary" id="c-go">${goLabel}</button></div></div></div>`);
+  const dlg=fillDialog(`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC</span><h2>${title}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}<p class="muted">两边不会自动合并。不确定时先取消，去导出备份。</p></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="button" class="primary" id="c-go">${goLabel}</button></div></div></div>`);
   dlg.querySelector('[data-close]').onclick=()=>res(false);
   dlg.querySelector('#c-go').onclick=()=>res(true);
 })}
@@ -151,10 +156,10 @@ export async function pushNow(){
     const d=snapshot(await fetchMeta(true));
     const ok=await askOverwrite('上传到云端',d.empty
       ?`<p>云端还是空的，将上传本机 <strong>${d.localN}</strong> 道菜谱（含菜单、冰箱等全部数据）。</p>`
-      :`<p>将用本机 <strong>${d.localN}</strong> 道菜谱覆盖云端目前的 <strong>${d.cloudN}</strong> 道（${stamp(d.meta.updatedAt)}）。</p><p>云端现有数据会整份被替换。</p>`,`上传本机（${d.localN} 道），覆盖云端`);
+      :`<p>将按本机 <strong>${d.localN}</strong> 道菜谱更新云端目前的 <strong>${d.cloudN}</strong> 道（${stamp(d.meta.updatedAt)}）。</p><p>本机已删除的菜谱会从云端去掉；封面、步骤、外出就餐里没有再被引用的配图也会清掉。</p>`,`上传本机（${d.localN} 道），更新云端`);
     if(!ok)return'cancelled';
     await doPush();
-    toast(d.empty?'云端为空，已上传本机数据':'已用本机数据覆盖云端');
+    toast(d.empty?'云端为空，已上传本机数据':'已按本机记录更新云端');
     return'pushed';
   }catch(e){toast(e&&e.message?e.message:'上传失败');return'error'}finally{running=false}
 }

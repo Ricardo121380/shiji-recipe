@@ -9,3 +9,9 @@ id = "2fd805e47e3049acbd82aae0b845adfc"
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "shiji-images"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shiji-sync"
+database_id = "89f51701-ed31-40ee-a3e2-3e0fbef10199"
+migrations_dir = "schema/migrations"
