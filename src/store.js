@@ -101,6 +101,7 @@ export function onLocalChange(fn){localChangeFns.add(fn)}
 export function update(fn){const backup=JSON.stringify(S);fn();if(S.settings)S.settings.updatedAt=Date.now();if(persist()){listeners.forEach(f=>f());localChangeFns.forEach(f=>f());return true}S=JSON.parse(backup);return false}
 
 export function onChange(fn){listeners.add(fn)}
+export function notify(){listeners.forEach(f=>f())}
 export function toast(msg){const el=document.querySelector('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3000)}
 
 export const findRecipe=id=>S.recipes.find(r=>r.id===id);

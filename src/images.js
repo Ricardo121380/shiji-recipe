@@ -110,7 +110,7 @@ async function compressDataUrl(url,max){
   return next&&next.length<url.length?next:url;
 }
 
-export async function hydrateImages(state){
+export async function hydrateImages(state,opts={}){
   if(!state)return{moved:0,compressed:0};
   let moved=0,compressed=0;
   const jobs=[];
@@ -119,7 +119,7 @@ export async function hydrateImages(state){
     const v=obj[key];
     if(typeof v==='string'&&v.startsWith('data:image/')){
       let data=v;
-      if(v.length>FAT){
+      if(!opts.skipCompress&&v.length>FAT){
         try{const next=await compressDataUrl(v,max);if(next!==v){data=next;compressed++}}catch{}
       }
       const stored=await storeImage(data);
