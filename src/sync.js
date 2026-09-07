@@ -1,6 +1,6 @@
 // 饭Fun 云同步：整份快照。上传/下载由用户点选；自动同步只在云端未更新时备份本机改动，从不自动覆盖本机
 import{S,normalizeImport,persist,toast,notify}from'./store.js';
-import{hydrateImages,cloneWithInlineImages}from'./images.js';
+import{hydrateImages,liveImageIds,hasInlineImages,readImageBlob,saveImageBlob}from'./images.js';
 import{ico}from'./ui.js';
 const AT='shiji-sync-at';
 let dirty=false,timer=null,running=false,started=false,lastPlan=null,toldNewer=false;
@@ -52,19 +52,74 @@ async function fetchJson(path){
   }finally{clearTimeout(t)}
 }
 async function fetchMeta(light=false){return fetchJson('/api/sync/'+getCode()+(light?'?meta=1':''))}
+async function pool(items,n,fn){
+  const ret=[];let i=0;
+  const worker=async()=>{while(i<items.length){const j=i++;ret[j]=await fn(items[j],j)}};
+  await Promise.all(Array.from({length:Math.min(n,items.length)||0},worker));
+  return ret;
+}
+async function pullImages(ids){
+  if(!ids.length)return 0;
+  let n=0;
+  await pool(ids,4,async id=>{
+    try{
+      const ctrl=new AbortController();
+      const t=setTimeout(()=>ctrl.abort(),30000);
+      const r=await fetch(apiBase()+'/api/sync/'+getCode()+'/img/'+encodeURIComponent(id),{cache:'no-store',signal:ctrl.signal});
+      clearTimeout(t);
+      if(!r.ok)return;
+      const blob=await r.blob();
+      if(!blob||blob.size<16)return;
+      await saveImageBlob(id,blob);
+      n++;
+    }catch{}
+  });
+  return n;
+}
+async function pushImages(ids){
+  if(!ids.length)return 0;
+  let n=0;
+  await pool(ids,4,async id=>{
+    const blob=await readImageBlob(id);
+    if(!blob||blob.size<16)return;
+    if(blob.size>900*1024)throw new Error('有配图过大，请换一张更小的照片后重试');
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),30000);
+    const r=await fetch(apiBase()+'/api/sync/'+getCode()+'/img/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob,signal:ctrl.signal});
+    clearTimeout(t);
+    if(!r.ok)throw new Error(r.status===413?'单张配图过大':'配图上传失败');
+    n++;
+  });
+  return n;
+}
 async function doPull(meta){
-  const next=normalizeImport(meta.data);if(!next)throw new Error('云端数据格式异常');
-  toast('正在写入本机，配图较多时请稍候…');
+  const payload=meta.data;const next=normalizeImport(payload);if(!next)throw new Error('云端数据格式异常');
+  toast('正在写入本机…');
   Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);
-  const{compressed}=await hydrateImages(S,{skipCompress:true});
+  const v3=Number(payload.version)>=3||Array.isArray(payload.imageIds);
+  if(v3&&!hasInlineImages(S)){
+    const ids=payload.imageIds||[...liveImageIds(S)];
+    if(ids.length)toast('正在下载配图（'+ids.length+' 张）…');
+    await pullImages(ids);
+  }else{
+    await hydrateImages(S,{skipCompress:true});
+    try{await doPush()}catch{}
+  }
   if(!persist())throw new Error('本机空间不足，云端数据未能保存');
   localStorage.setItem(AT,meta.updatedAt);dirty=false;toldNewer=false;notify();
-  if(compressed){toast('已压缩云端同步下来的 '+compressed+' 张大图');dirty=true;try{await doPush()}catch{}}
 }
-async function doPush(){const state=await cloneWithInlineImages(S);const body=JSON.stringify({version:2,state,pushedAt:new Date().toISOString()});
-if(body.length>8*1024*1024)throw new Error('数据过大，请减少配图后重试');
-const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Content-Type':'application/json'},body});
-if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false}
+async function doPush(){
+  const state=JSON.parse(JSON.stringify(S));
+  await hydrateImages(state,{skipCompress:true});
+  const ids=[...liveImageIds(state)];
+  if(ids.length)toast('正在上传配图（'+ids.length+' 张）…');
+  await pushImages(ids);
+  const body=JSON.stringify({version:3,state,imageIds:ids,pushedAt:new Date().toISOString()});
+  if(body.length>8*1024*1024)throw new Error('数据过大，请减少配图后重试');
+  const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Content-Type':'application/json'},body});
+  if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');
+  const j=await r.json();localStorage.setItem(AT,j.updatedAt);dirty=false;
+}
 function fillDialog(html){const d=document.querySelector('#dialog-root');d.innerHTML=html;if(!d.open)d.showModal();return d}
 function askOverwrite(title,body,goLabel){return new Promise(res=>{
   const dlg=fillDialog(`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC</span><h2>${title}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}<p class="muted">这是整份覆盖，不是两边合并。不确定时先取消，去导出备份。</p></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="button" class="primary" id="c-go">${goLabel}</button></div></div></div>`);

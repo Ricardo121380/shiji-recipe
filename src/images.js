@@ -63,6 +63,16 @@ export function liveImageIds(state){
   walkImages(state,(obj,key)=>{const v=obj[key];if(isIdbRef(v))ids.add(v.slice(PREFIX.length))});
   return ids;
 }
+export function hasInlineImages(state){
+  let hit=false;
+  walkImages(state,(obj,key)=>{if(String(obj[key]||'').startsWith('data:image/'))hit=true});
+  return hit;
+}
+export async function readImageBlob(id){try{return await idbGet(id)}catch{return null}}
+export async function saveImageBlob(id,blob){
+  await idbPut(id,blob);
+  cacheBlob(id,blob);
+}
 
 async function blobToDataUrl(blob){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)});
