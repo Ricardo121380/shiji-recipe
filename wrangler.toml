@@ -5,3 +5,7 @@ compatibility_date = "2026-09-01"
 [[kv_namespaces]]
 binding = "SYNC_KV"
 id = "2fd805e47e3049acbd82aae0b845adfc"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "shiji-images"

@@ -1,6 +1,6 @@
 import{S,today,addDays,MEALS,fmtDate,daysUntil,onChange,persist,normalizeImport,toast,prepItemsFor,prepUpcoming,onLocalChange as store_onLocalChange,defrostItemsFor,defrostNames}from'./store.js';
 import{ico,esc}from'./ui.js';
-import{hydrateImages,cloneWithInlineImages}from'./images.js';
+import{hydrateImages,cloneWithInlineImages,canonicalizeImages}from'./images.js';
 import*as sync from'./sync.js';
 window.__syncDebug=sync;
 import{render as renderRecipes,setType}from'./recipes.js';
@@ -106,7 +106,7 @@ function prepBellCount(){return prepUpcoming(2).length}
 window.addEventListener('hashchange',renderView);
 onChange(renderView);
 (async()=>{
-  try{const{moved,compressed}=await hydrateImages(S);if(moved||compressed){if(persist()){if(compressed)toast('已压缩 '+compressed+' 张旧配图，节省存储空间');sync.onLocalChange()}}}catch{}
+  try{const{moved,compressed}=await hydrateImages(S);const hashed=await canonicalizeImages(S);if(moved||compressed||hashed){if(persist()){if(compressed)toast('已压缩 '+compressed+' 张旧配图，节省存储空间');sync.onLocalChange()}}}catch{}
   renderApp();
   notifyExpiring();
   notifyPrep();

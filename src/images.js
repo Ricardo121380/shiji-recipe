@@ -73,9 +73,24 @@ export async function saveImageBlob(id,blob){
   await idbPut(id,blob);
   cacheBlob(id,blob);
 }
+export async function localImageIds(){try{return new Set(await idbKeys())}catch{return new Set()}}
+export async function hashBlob(blob){
+  const buf=await blob.arrayBuffer();
+  const d=await crypto.subtle.digest('SHA-256',buf);
+  return[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+export const isHashId=id=>typeof id==='string'&&/^[a-f0-9]{64}$/i.test(id);
 
 async function blobToDataUrl(blob){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)});
+}
+
+export async function storeBlob(blob){
+  const id=await hashBlob(blob);
+  const existed=await idbGet(id).catch(()=>null);
+  if(!existed)await idbPut(id,blob);
+  cacheBlob(id,blob);
+  return PREFIX+id;
 }
 
 export async function storeImage(dataUrl){
@@ -83,13 +98,35 @@ export async function storeImage(dataUrl){
   if(isIdbRef(dataUrl)||!String(dataUrl).startsWith('data:image/'))return dataUrl;
   try{
     const blob=await(await fetch(dataUrl)).blob();
-    const id=crypto.randomUUID();
-    await idbPut(id,blob);
-    cacheBlob(id,blob);
-    return PREFIX+id;
+    return await storeBlob(blob);
   }catch{
     return dataUrl;
   }
+}
+
+export async function canonicalizeImages(state){
+  if(!state)return 0;
+  await hydrateImages(state,{skipCompress:true});
+  let changed=0;
+  const jobs=[];
+  walkImages(state,(obj,key)=>jobs.push({obj,key}));
+  for(const{obj,key}of jobs){
+    const v=obj[key];
+    if(!isIdbRef(v))continue;
+    const old=v.slice(PREFIX.length);
+    if(isHashId(old)){
+      if(!cache.has(old)){
+        const blob=await idbGet(old).catch(()=>null);
+        if(blob)cacheBlob(old,blob);
+      }
+      continue;
+    }
+    const blob=await idbGet(old).catch(()=>null);
+    if(!blob){obj[key]='';changed++;continue}
+    const next=await storeBlob(blob);
+    if(next!==v){obj[key]=next;changed++}
+  }
+  return changed;
 }
 
 export async function ingestFile(file,max=1400){

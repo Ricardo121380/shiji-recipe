@@ -12,16 +12,21 @@ export async function onRequestOptions() { return new Response(null, { status: 2
 export async function onRequestGet({ request, params, env }) {
   const code = String(params.code || '').toLowerCase();
   if (!valid(code)) return json({ error: '同步码格式不正确' }, 400);
-  const { value, metadata } = await env.SYNC_KV.getWithMetadata('sync:' + code);
-  const updatedAt = metadata?.updatedAt || null;
   const light = new URL(request.url).searchParams.get('meta') === '1';
   if (light) {
-    let recipes = metadata?.recipes != null ? Number(metadata.recipes) : null;
-    if (recipes == null && value) {
-      try { recipes = JSON.parse(value)?.state?.recipes?.length ?? 0 } catch { recipes = 0 }
+    const side = await env.SYNC_KV.get('sync:' + code + ':meta');
+    if (side) {
+      try { return json({ empty: false, ...JSON.parse(side) }) } catch {}
     }
-    return json({ updatedAt, recipes, empty: !value });
+    const listed = await env.SYNC_KV.list({ prefix: 'sync:' + code, limit: 50 });
+    const main = (listed.keys || []).find(k => k.name === 'sync:' + code);
+    if (!main) return json({ updatedAt: null, recipes: 0, empty: true, version: 0 });
+    const md = main.metadata || {};
+    const version = Number(md.version) || 2;
+    return json({ updatedAt: md.updatedAt || null, recipes: md.recipes != null ? Number(md.recipes) : null, empty: false, version, bulky: version < 3 });
   }
+  const { value, metadata } = await env.SYNC_KV.getWithMetadata('sync:' + code);
+  const updatedAt = metadata?.updatedAt || null;
   if (!value) return json({ updatedAt: null, data: null, empty: true });
   return new Response(`{"updatedAt":${JSON.stringify(updatedAt)},"data":${value}}`, {
     headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
@@ -33,9 +38,13 @@ export async function onRequestPut({ request, params, env }) {
   if (!valid(code)) return json({ error: '同步码格式不正确' }, 400);
   const body = await request.text();
   if (!body || body.length > 8 * 1024 * 1024) return json({ error: '数据过大，请减少配图后重试' }, 413);
-  let recipes = 0;
-  try { recipes = JSON.parse(body)?.state?.recipes?.length || 0 } catch { return json({ error: '数据格式错误' }, 400); }
+  let parsed;
+  try { parsed = JSON.parse(body) } catch { return json({ error: '数据格式错误' }, 400); }
+  const recipes = parsed?.state?.recipes?.length || 0;
+  const version = Number(parsed?.version) || 2;
+  const images = Array.isArray(parsed?.imageIds) ? parsed.imageIds.length : 0;
   const updatedAt = new Date().toISOString();
-  await env.SYNC_KV.put('sync:' + code, body, { metadata: { updatedAt, recipes: String(recipes) } });
-  return json({ ok: true, updatedAt, recipes });
+  await env.SYNC_KV.put('sync:' + code, body, { metadata: { updatedAt, recipes: String(recipes), version: String(version) } });
+  await env.SYNC_KV.put('sync:' + code + ':meta', JSON.stringify({ updatedAt, recipes, version, images, empty: false }));
+  return json({ ok: true, updatedAt, recipes, version, images });
 }

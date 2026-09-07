@@ -1,6 +1,6 @@
 // 饭Fun 云同步：整份快照。上传/下载由用户点选；自动同步只在云端未更新时备份本机改动，从不自动覆盖本机
 import{S,normalizeImport,persist,toast,notify}from'./store.js';
-import{hydrateImages,liveImageIds,hasInlineImages,readImageBlob,saveImageBlob}from'./images.js';
+import{hydrateImages,liveImageIds,hasInlineImages,readImageBlob,saveImageBlob,canonicalizeImages,localImageIds}from'./images.js';
 import{ico}from'./ui.js';
 const AT='shiji-sync-at';
 let dirty=false,timer=null,running=false,started=false,lastPlan=null,toldNewer=false;
@@ -60,8 +60,12 @@ async function pool(items,n,fn){
 }
 async function pullImages(ids){
   if(!ids.length)return 0;
+  const have=await localImageIds();
+  const missing=ids.filter(id=>!have.has(id));
+  if(!missing.length)return 0;
+  toast('正在下载缺失配图（'+missing.length+' 张）…');
   let n=0;
-  await pool(ids,4,async id=>{
+  await pool(missing,4,async id=>{
     try{
       const ctrl=new AbortController();
       const t=setTimeout(()=>ctrl.abort(),30000);
@@ -92,29 +96,39 @@ async function pushImages(ids){
   });
   return n;
 }
+async function remoteImageIds(){
+  const light=await fetchMeta(true);
+  if(light.empty||light.bulky||Number(light.version||0)<3)return new Set();
+  const full=await fetchMeta(false);
+  return new Set(full.data?.imageIds||[]);
+}
 async function doPull(meta){
   const payload=meta.data;const next=normalizeImport(payload);if(!next)throw new Error('云端数据格式异常');
   toast('正在写入本机…');
   Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);
   const v3=Number(payload.version)>=3||Array.isArray(payload.imageIds);
   if(v3&&!hasInlineImages(S)){
-    const ids=payload.imageIds||[...liveImageIds(S)];
-    if(ids.length)toast('正在下载配图（'+ids.length+' 张）…');
-    await pullImages(ids);
+    await pullImages(payload.imageIds||[...liveImageIds(S)]);
   }else{
     await hydrateImages(S,{skipCompress:true});
+    await canonicalizeImages(S);
     try{await doPush()}catch{}
   }
+  await canonicalizeImages(S);
   if(!persist())throw new Error('本机空间不足，云端数据未能保存');
   localStorage.setItem(AT,meta.updatedAt);dirty=false;toldNewer=false;notify();
 }
 async function doPush(){
+  const n=await canonicalizeImages(S);
+  if(n)persist();
   const state=JSON.parse(JSON.stringify(S));
-  await hydrateImages(state,{skipCompress:true});
   const ids=[...liveImageIds(state)];
-  if(ids.length)toast('正在上传配图（'+ids.length+' 张）…');
-  await pushImages(ids);
-  const body=JSON.stringify({version:3,state,imageIds:ids,pushedAt:new Date().toISOString()});
+  const remote=await remoteImageIds();
+  const missing=ids.filter(id=>!remote.has(id));
+  if(missing.length)toast('正在上传新增配图（'+missing.length+' 张'+(ids.length>missing.length?'，已有 '+(ids.length-missing.length)+' 张跳过':'')+'）…');
+  else if(ids.length)toast('配图均已在云端，只更新菜谱数据…');
+  await pushImages(missing);
+  const body=JSON.stringify({version:4,state,imageIds:ids,pushedAt:new Date().toISOString()});
   if(body.length>8*1024*1024)throw new Error('数据过大，请减少配图后重试');
   const r=await fetch(apiBase()+'/api/sync/'+getCode(),{method:'PUT',headers:{'Content-Type':'application/json'},body});
   if(!r.ok)throw new Error(r.status===413?'数据过大，请减少配图后重试':'上传失败（'+r.status+'）');
