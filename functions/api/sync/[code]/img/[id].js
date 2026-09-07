@@ -17,7 +17,7 @@ export async function onRequestHead({ params, env }) {
   if (!validCode(code) || !validId(id)) return new Response(null, { status: 400, headers: CORS });
   if (env.IMAGES) {
     const h = await env.IMAGES.head(r2key(code, id));
-    return new Response(null, { status: h ? 200 : 404, headers: CORS });
+    if (h) return new Response(null, { status: 200, headers: CORS });
   }
   const v = await env.SYNC_KV.get(kvkey(code, id));
   return new Response(null, { status: v ? 200 : 404, headers: CORS });
@@ -29,8 +29,7 @@ export async function onRequestGet({ params, env }) {
   if (!validCode(code) || !validId(id)) return json({ error: '参数不正确' }, 400);
   if (env.IMAGES) {
     const obj = await env.IMAGES.get(r2key(code, id));
-    if (!obj) return json({ error: 'not found' }, 404);
-    return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS } });
+    if (obj) return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS } });
   }
   const { value, metadata } = await env.SYNC_KV.getWithMetadata(kvkey(code, id), { type: 'arrayBuffer' });
   if (!value) return json({ error: 'not found' }, 404);

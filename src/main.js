@@ -106,7 +106,7 @@ function prepBellCount(){return prepUpcoming(2).length}
 window.addEventListener('hashchange',renderView);
 onChange(renderView);
 (async()=>{
-  try{const{moved,compressed}=await hydrateImages(S);const hashed=await canonicalizeImages(S);if(moved||compressed||hashed){if(persist()){if(compressed)toast('已压缩 '+compressed+' 张旧配图，节省存储空间');sync.onLocalChange()}}}catch{}
+  try{const{moved,compressed}=await hydrateImages(S);const hashed=await canonicalizeImages(S);if(moved||compressed||hashed){if(persist()){if(compressed)toast('已压缩 '+compressed+' 张旧配图，节省存储空间');if(moved||hashed)sync.onLocalChange()}}}catch{}
   renderApp();
   notifyExpiring();
   notifyPrep();

@@ -1,6 +1,6 @@
 // 饭Fun 云同步：本机仍是整份状态；云端按记录写入 D1，配图按哈希存 R2。上传/下载由用户点选，不自动合并
 import{S,normalizeImport,persist,toast,notify}from'./store.js';
-import{hydrateImages,liveImageIds,hasInlineImages,readImageBlob,saveImageBlob,canonicalizeImages,localImageIds}from'./images.js';
+import{hydrateImages,liveImageIds,hasInlineImages,readImageBlob,saveImageBlob,canonicalizeImages,localImageIds,missingImageIds}from'./images.js';
 import{ico}from'./ui.js';
 const AT='shiji-sync-at';
 let dirty=false,timer=null,running=false,started=false,lastPlan=null,toldNewer=false;
@@ -59,25 +59,39 @@ async function pool(items,n,fn){
   return ret;
 }
 async function pullImages(ids){
-  if(!ids.length)return 0;
+  if(!ids.length)return{n:0,fail:0,needed:0};
   const have=await localImageIds();
   const missing=ids.filter(id=>!have.has(id));
-  if(!missing.length)return 0;
+  if(!missing.length)return{n:0,fail:0,needed:0};
   toast('正在下载缺失配图（'+missing.length+' 张）…');
-  let n=0;
+  let n=0,fail=0;
   await pool(missing,4,async id=>{
     try{
       const ctrl=new AbortController();
       const t=setTimeout(()=>ctrl.abort(),30000);
       const r=await fetch(apiBase()+'/api/sync/'+getCode()+'/img/'+encodeURIComponent(id),{cache:'no-store',signal:ctrl.signal});
       clearTimeout(t);
-      if(!r.ok)return;
+      if(!r.ok){fail++;return}
       const blob=await r.blob();
-      if(!blob||blob.size<16)return;
+      if(!blob||blob.size<16||(blob.type||'').includes('json')){fail++;return}
       await saveImageBlob(id,blob);
       n++;
-    }catch{}
+    }catch{fail++}
   });
+  return{n,fail,needed:missing.length};
+}
+export async function repairImages(){
+  if(!isBound())return 0;
+  const ids=await missingImageIds(S);
+  if(!ids.length){
+    await hydrateImages(S,{skipCompress:true,skipGc:true});
+    return 0;
+  }
+  const {n,fail}=await pullImages(ids);
+  await hydrateImages(S,{skipCompress:true,skipGc:true});
+  if(n)notify();
+  if(fail)toast(n?'已补下 '+n+' 张配图，还有 '+fail+' 张没取到':'有 '+fail+' 张配图没从云端取到');
+  else if(n)toast('已从云端补下 '+n+' 张配图');
   return n;
 }
 async function pushImages(ids){
@@ -109,16 +123,20 @@ async function doPull(meta){
   toast('正在写入本机…');
   Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,next);
   const v3=Number(payload.version)>=3||Array.isArray(payload.imageIds);
+  let img={n:0,fail:0,needed:0};
   if(v3&&!hasInlineImages(S)){
-    await pullImages(payload.imageIds||[...liveImageIds(S)]);
+    img=await pullImages(payload.imageIds||[...liveImageIds(S)]);
   }else{
-    await hydrateImages(S,{skipCompress:true});
+    await hydrateImages(S,{skipCompress:true,skipGc:true});
     await canonicalizeImages(S);
     try{await doPush()}catch{}
   }
+  const still=await missingImageIds(S);
+  if(still.length)img=await pullImages(still);
   await canonicalizeImages(S);
   if(!persist())throw new Error('本机空间不足，云端数据未能保存');
   localStorage.setItem(AT,meta.updatedAt);dirty=false;toldNewer=false;notify();
+  return img;
 }
 async function doPush(){
   const n=await canonicalizeImages(S);
@@ -172,8 +190,8 @@ export async function pullNow(){
     const ok=await askOverwrite('下载到本机',`<p>将用云端 <strong>${d.cloudN||'备份'}</strong> 道菜谱（${stamp(d.meta.updatedAt)}）覆盖本机目前的 <strong>${d.localN}</strong> 道。</p><p>本机现有数据会整份被替换。配图多时下载会多等一会儿。</p>`,`下载云端${d.cloudN?`（${d.cloudN} 道）`:''}，覆盖本机`);
     if(!ok)return'cancelled';
     toast('正在从云端下载…');
-    await doPull(await fetchMeta(false));
-    toast('已用云端数据覆盖本机');
+    const img=await doPull(await fetchMeta(false));
+    toast(img&&img.n?'已下载云端数据，并保存 '+img.n+' 张配图'+(img.fail?'（'+img.fail+' 张还在补）':''):img&&img.fail?'菜谱已下载，但配图没取齐，稍后会自动重试':'已用云端数据覆盖本机');
     return'pulled';
   }catch(e){toast(e&&e.message?e.message:'下载失败');return'error'}finally{running=false}
 }
@@ -197,17 +215,24 @@ export async function tick(){
     if(d.empty){await doPush();return'pushed'}
     if(!lastSyncAt()&&!d.empty){
       toast('正在从云端恢复备份…');
-      await doPull(await fetchMeta(false));
-      toast('已从云端恢复备份');
+      const img=await doPull(await fetchMeta(false));
+      toast(img&&img.n?'已从云端恢复备份，并保存 '+img.n+' 张配图':'已从云端恢复备份');
       return'pulled';
     }
     if(d.cloudNewer){if(!toldNewer){toldNewer=true;toast('云端有新备份，请打开「云同步」点下载到本机')}return'needs-pull'}
-    if(d.localDirty&&d.localN>=d.cloudN){await doPush();return'pushed'}
+    const miss=await missingImageIds(S);
+    if(miss.length){await repairImages();return'repair'}
+    const cloudImgs=Number(d.meta.images||d.meta.imageIds?.length||0);
+    const live=[...liveImageIds(S)].length;
+    if(d.localDirty&&d.localN>=d.cloudN){
+      if(cloudImgs>live)return'needs-pull';
+      await doPush();return'pushed';
+    }
     return'latest';
   }catch(e){return'error'}finally{running=false}
 }
 export function start(){if(started)return;started=true;
-setTimeout(()=>tick(),1500);
+setTimeout(async()=>{try{await repairImages()}catch{} tick()},1500);
 setInterval(()=>tick(),30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 window.addEventListener('online',()=>tick())}

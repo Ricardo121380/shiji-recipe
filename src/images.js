@@ -122,7 +122,7 @@ export async function canonicalizeImages(state){
       continue;
     }
     const blob=await idbGet(old).catch(()=>null);
-    if(!blob){obj[key]='';changed++;continue}
+    if(!blob)continue;
     const next=await storeBlob(blob);
     if(next!==v){obj[key]=next;changed++}
   }
@@ -157,9 +157,15 @@ async function compressDataUrl(url,max){
   return next&&next.length<url.length?next:url;
 }
 
+export async function missingImageIds(state){
+  const live=liveImageIds(state);
+  const have=await localImageIds();
+  return [...live].filter(id=>!have.has(id));
+}
+
 export async function hydrateImages(state,opts={}){
-  if(!state)return{moved:0,compressed:0};
-  let moved=0,compressed=0;
+  if(!state)return{moved:0,compressed:0,missing:0};
+  let moved=0,compressed=0,missing=0;
   const jobs=[];
   walkImages(state,(obj,key,max)=>jobs.push({obj,key,max}));
   for(const{obj,key,max}of jobs){
@@ -178,14 +184,14 @@ export async function hydrateImages(state,opts={}){
         try{
           const blob=await idbGet(id);
           if(blob)cacheBlob(id,blob);
-          else obj[key]='';
-        }catch{}
+          else missing++;
+        }catch{missing++}
       }
     }
     await new Promise(r=>setTimeout(r,0));
   }
-  await gcImages(state);
-  return{moved,compressed};
+  if(!opts.skipGc)await gcImages(state);
+  return{moved,compressed,missing};
 }
 
 export async function inlineImages(state){
