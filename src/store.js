@@ -2,13 +2,13 @@
 const KEY='shiji-state-v2', OLD_KEY='shiji-recipes-v1';
 export const MEALS=[['breakfast','早餐'],['lunch','午餐'],['dinner','晚餐'],['extra','加餐']];
 export const PET={ok:'能吃',care:'谨慎',no:'不能',na:'—'};
-export const EXPIRY_FILTERS=[['all','全部'],['fresh','新鲜（>7天）'],['soon','快过期（1-7天）'],['expired','已过期']];
+export const EXPIRY_FILTERS=[['all','全部'],['fresh','新鲜（>7天）'],['soon','快过期（1-7天）'],['expired','已过期'],['empty','无库存']];
 export const FRIDGE_KINDS=[['ingredient','食材'],['snack','速食零食'],['other','其他']];
 export function fridgeCatsOf(kind){if(kind==='snack')return(S.cats?.fridgeSnack&&S.cats.fridgeSnack.length)?S.cats.fridgeSnack:['其他'];if(kind==='other')return(S.cats?.fridgeOther&&S.cats.fridgeOther.length)?S.cats.fridgeOther:['其他'];return(S.cats?.fridge&&S.cats.fridge.length)?S.cats.fridge:['其他']}
 export const pantryCalUnit=u=>{const s=String(u||'').trim();if(s==='bag')return'袋';return s};
 export const fmtPantryCal=p=>{if(p?.calories==null||p.calories==='')return'';const n=Number(p.calories);if(!Number.isFinite(n)||n<=0)return'';const u=pantryCalUnit(p.calUnit)||'100g';return`${n} 千卡/${u}`}
 export const pantryInStock=p=>!!p&&p.inStock!==false&&(Number(p.qty)||0)>0;
-export function expiryLeft(exp){const d=daysUntil(exp);if(!Number.isFinite(d))return null;if(d<0)return{label:`已过期 ${-d} 天`,cls:'expired'};if(d===0)return{label:'今天到期',cls:'soon'};return{label:`还有 ${d} 天到期`,cls:d<=7?'soon':'fresh'}}
+export function expiryLeft(exp){const d=daysUntil(exp);if(!Number.isFinite(d))return null;if(d<0)return{label:`已过期 ${-d} 天`,cls:'expired'};if(d===0)return{label:'今天到期',cls:'soon'};return{label:`${d} 天到期`,cls:d<=7?'soon':'fresh'}}
 export const dstr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 export const today=()=>dstr(new Date());
 export const addDays=(s,n)=>{const[y,m,d]=s.split('-').map(Number);return dstr(new Date(y,m-1,d+n))};
