@@ -3,10 +3,10 @@ const KEY='shiji-state-v2', OLD_KEY='shiji-recipes-v1';
 export const MEALS=[['breakfast','早餐'],['lunch','午餐'],['dinner','晚餐'],['extra','加餐']];
 export const PET={ok:'能吃',care:'谨慎',no:'不能',na:'—'};
 export const EXPIRY_FILTERS=[['all','全部'],['fresh','新鲜（>7天）'],['soon','快过期（1-7天）'],['expired','已过期']];
-export const CAL_UNITS=[['100g','每 100g'],['bag','每袋'],['50g','每 50g']];
-export const calUnitLabel=u=>CAL_UNITS.find(x=>x[0]===u)?.[1]||'每 100g';
-export const fmtPantryCal=p=>{if(p?.calories==null||p.calories==='')return'';const n=Number(p.calories);if(!Number.isFinite(n)||n<=0)return'';const u=p.calUnit==='bag'?'袋':p.calUnit==='50g'?'50g':'100g';return`${n} 千卡/${u}`}
+export const pantryCalUnit=u=>{const s=String(u||'').trim();if(s==='bag')return'袋';return s};
+export const fmtPantryCal=p=>{if(p?.calories==null||p.calories==='')return'';const n=Number(p.calories);if(!Number.isFinite(n)||n<=0)return'';const u=pantryCalUnit(p.calUnit)||'100g';return`${n} 千卡/${u}`}
 export const pantryInStock=p=>!!p&&p.inStock!==false&&(Number(p.qty)||0)>0;
+export function expiryLeft(exp){const d=daysUntil(exp);if(!Number.isFinite(d))return null;if(d<0)return{label:`已过期 ${-d} 天`,cls:'expired'};if(d===0)return{label:'今天到期',cls:'soon'};return{label:`还有 ${d} 天到期`,cls:d<=7?'soon':'fresh'}}
 export const dstr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 export const today=()=>dstr(new Date());
 export const addDays=(s,n)=>{const[y,m,d]=s.split('-').map(Number);return dstr(new Date(y,m-1,d+n))};
@@ -76,7 +76,7 @@ let venue=d.venue==='食堂'?'堂食':d.venue;
 if(!venue)venue=(d.category==='食堂'||d.category==='堂食')?'堂食':'外卖';
 return{type:'dining',place:'',...d,venue,dineIn:venue==='外卖'&&!!d.dineIn};
 });
-s.pantry=(s.pantry||[]).map(p=>{const qty=Number(p.qty)||0;const calUnit=CAL_UNITS.some(x=>x[0]===p.calUnit)?p.calUnit:'100g';const calories=p.calories==null||p.calories===''?null:Number(p.calories);const inStock=p.inStock===false?false:p.inStock===true?true:qty>0;return{kind:'ingredient',brand:'',flavor:'',keep:'',...p,qty,calUnit,calories:Number.isFinite(calories)&&calories>0?calories:null,inStock}});
+s.pantry=(s.pantry||[]).map(p=>{const qty=Number(p.qty)||0;const calUnit=pantryCalUnit(p.calUnit)||'100g';const calories=p.calories==null||p.calories===''?null:Number(p.calories);const inStock=p.inStock===false?false:p.inStock===true?true:qty>0;return{kind:'ingredient',brand:'',flavor:'',keep:'',...p,qty,calUnit,calories:Number.isFinite(calories)&&calories>0?calories:null,inStock}});
 s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};if(!x.board&&base.category&&(s.cats?.daily||[]).includes(base.category))base.board='daily';return base});
 delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
