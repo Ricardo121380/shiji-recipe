@@ -3,6 +3,10 @@ const KEY='shiji-state-v2', OLD_KEY='shiji-recipes-v1';
 export const MEALS=[['breakfast','早餐'],['lunch','午餐'],['dinner','晚餐'],['extra','加餐']];
 export const PET={ok:'能吃',care:'谨慎',no:'不能',na:'—'};
 export const EXPIRY_FILTERS=[['all','全部'],['fresh','新鲜（>7天）'],['soon','快过期（1-7天）'],['expired','已过期']];
+export const CAL_UNITS=[['100g','每 100g'],['bag','每袋'],['50g','每 50g']];
+export const calUnitLabel=u=>CAL_UNITS.find(x=>x[0]===u)?.[1]||'每 100g';
+export const fmtPantryCal=p=>{if(p?.calories==null||p.calories==='')return'';const n=Number(p.calories);if(!Number.isFinite(n)||n<=0)return'';const u=p.calUnit==='bag'?'袋':p.calUnit==='50g'?'50g':'100g';return`${n} 千卡/${u}`}
+export const pantryInStock=p=>!!p&&p.inStock!==false&&(Number(p.qty)||0)>0;
 export const dstr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 export const today=()=>dstr(new Date());
 export const addDays=(s,n)=>{const[y,m,d]=s.split('-').map(Number);return dstr(new Date(y,m-1,d+n))};
@@ -72,7 +76,7 @@ let venue=d.venue==='食堂'?'堂食':d.venue;
 if(!venue)venue=(d.category==='食堂'||d.category==='堂食')?'堂食':'外卖';
 return{type:'dining',place:'',...d,venue,dineIn:venue==='外卖'&&!!d.dineIn};
 });
-s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',keep:'',...p}));
+s.pantry=(s.pantry||[]).map(p=>{const qty=Number(p.qty)||0;const calUnit=CAL_UNITS.some(x=>x[0]===p.calUnit)?p.calUnit:'100g';const calories=p.calories==null||p.calories===''?null:Number(p.calories);const inStock=p.inStock===false?false:p.inStock===true?true:qty>0;return{kind:'ingredient',brand:'',flavor:'',keep:'',...p,qty,calUnit,calories:Number.isFinite(calories)&&calories>0?calories:null,inStock}});
 s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};if(!x.board&&base.category&&(s.cats?.daily||[]).includes(base.category))base.board='daily';return base});
 delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
@@ -142,13 +146,13 @@ export const enabledSpecs=r=>(r?.specs||[]).filter(sp=>sp.enabled&&sp.name&&sp.o
 
 // —— 冰箱 ——
 export function pantryMatches(ingName){return S.pantry.filter(p=>p.kind==='ingredient'&&nameMatch(p.name,ingName))}
-export function expiringItems(){return S.pantry.filter(p=>daysUntil(p.expiryDate)<=2).sort((a,b)=>daysUntil(a.expiryDate)-daysUntil(b.expiryDate))}
-export function lowPantry(){return S.pantry.filter(p=>p.lowAt&&Number(p.qty)<=Number(p.lowAt))}
-export function addPantryHistory(item){const h={name:item.name,category:item.category,unit:item.unit,shelfDays:Math.max(1,daysUntil(item.expiryDate)),petCat:item.petCat,petDog:item.petDog,keep:item.keep||'',notes:item.notes};S.pantryHistory=[h,...(S.pantryHistory||[]).filter(x=>x.name!==item.name)].slice(0,24)}
+export function expiringItems(){return S.pantry.filter(p=>pantryInStock(p)&&daysUntil(p.expiryDate)<=2).sort((a,b)=>daysUntil(a.expiryDate)-daysUntil(b.expiryDate))}
+export function lowPantry(){return S.pantry.filter(p=>pantryInStock(p)&&p.lowAt&&Number(p.qty)<=Number(p.lowAt))}
+export function addPantryHistory(item){const h={name:item.name,category:item.category,unit:item.unit,shelfDays:Math.max(1,daysUntil(item.expiryDate)),petCat:item.petCat,petDog:item.petDog,keep:item.keep||'',notes:item.notes,calories:item.calories??null,calUnit:item.calUnit||'100g'};S.pantryHistory=[h,...(S.pantryHistory||[]).filter(x=>x.name!==item.name)].slice(0,24)}
 
 // 扣减一个食材（按用量与份数），返回扣减记录用于回退
-export function deductIngredient(ingName,amount,factor=1){const p=pantryMatches(ingName).find(p=>(Number(p.qty)||0)>0);if(!p)return null;const info=parseAmountInfo(amount);const base=info&&(!info.unit||unitMatch(info.unit,p.unit))?info.num:1;const amt=Math.round(base*factor*10)/10;const before=Number(p.qty)||0;p.qty=Math.max(0,Math.round((before-amt)*10)/10);return{pantryId:p.id,name:p.name,amount:Math.min(before,amt),unit:p.unit}}
-export function restoreDeducted(recs){for(const rec of recs||[]){const p=S.pantry.find(x=>x.id===rec.pantryId);if(p)p.qty=Math.round(((Number(p.qty)||0)+rec.amount)*10)/10}}
+export function deductIngredient(ingName,amount,factor=1){const p=pantryMatches(ingName).find(pantryInStock);if(!p)return null;const info=parseAmountInfo(amount);const base=info&&(!info.unit||unitMatch(info.unit,p.unit))?info.num:1;const amt=Math.round(base*factor*10)/10;const before=Number(p.qty)||0;p.qty=Math.max(0,Math.round((before-amt)*10)/10);if(p.qty<=0)p.inStock=false;return{pantryId:p.id,name:p.name,amount:Math.min(before,amt),unit:p.unit}}
+export function restoreDeducted(recs){for(const rec of recs||[]){const p=S.pantry.find(x=>x.id===rec.pantryId);if(p){p.qty=Math.round(((Number(p.qty)||0)+rec.amount)*10)/10;if(p.qty>0)p.inStock=true}}}
 
 // —— 周菜单 / 点菜 ——
 export function menuItems(date,meal){return(S.menu[date]?.[meal])||[]}
@@ -191,7 +195,7 @@ if(!g.names.some(n=>nameMatch(n,k)))g.names.push(k);
 if(pm&&!g.pantryNames.some(pn=>nameMatch(pn,k)))g.pantryNames.push(pm);
 if(!a)continue;if(info)g.infos.push({...info,factor:item.qty||1});else g.texts.push(a)}}}
 return groups.map(g=>{let amount='';
-if(g.infos.length){const byUnit={};for(const{num,unit,factor}of g.infos)byUnit[unit||'']=(byUnit[unit||'']||0)+num*factor;const parts=[];for(const[unit,num]of Object.entries(byUnit)){const stock=S.pantry.filter(p=>p.kind==='ingredient'&&nameMatch(p.name,g.names[0])&&(!unit||unitMatch(p.unit,unit))).reduce((n,p)=>n+(Number(p.qty)||0),0);const lack=Math.round((num-stock)*10)/10;parts.push(lack>0?`约差 ${lack}${unit}`:null)}const real=parts.filter(Boolean);if(!real.length)return null;amount=real.join(' + ')}
+if(g.infos.length){const byUnit={};for(const{num,unit,factor}of g.infos)byUnit[unit||'']=(byUnit[unit||'']||0)+num*factor;const parts=[];for(const[unit,num]of Object.entries(byUnit)){const stock=S.pantry.filter(p=>p.kind==='ingredient'&&pantryInStock(p)&&nameMatch(p.name,g.names[0])&&(!unit||unitMatch(p.unit,unit))).reduce((n,p)=>n+(Number(p.qty)||0),0);const lack=Math.round((num-stock)*10)/10;parts.push(lack>0?`约差 ${lack}${unit}`:null)}const real=parts.filter(Boolean);if(!real.length)return null;amount=real.join(' + ')}
 else if(g.texts.length)amount=g.texts.join(' / ');
 else amount='按需购买';
 const pm=S.pantry.find(p=>p.kind==='ingredient'&&nameMatch(p.name,g.names[0]));return{name:g.names[0],amount,category:pm?pm.category:'',board:'food'}}).filter(Boolean)}
@@ -199,14 +203,14 @@ const pm=S.pantry.find(p=>p.kind==='ingredient'&&nameMatch(p.name,g.names[0]));r
 // —— 随机选菜 ——
 export const ING_ROLES={main:'主菜',side:'辅菜',season:'调料'};
 export function randomPick(type,category,stock){const pool=S.recipes.filter(r=>r.type===type&&(category==='全部'||r.category===category));
-const scored=pool.map(r=>{const ings=r.ingredients||[];const has=i=>pantryMatches(i.name).some(p=>(Number(p.qty)||0)>0);const missing=ings.filter(i=>!has(i));return{r,missing,total:ings.length}});
+const scored=pool.map(r=>{const ings=r.ingredients||[];const has=i=>pantryMatches(i.name).some(pantryInStock);const missing=ings.filter(i=>!has(i));return{r,missing,total:ings.length}});
 if(stock==='all')var cand=scored.filter(x=>x.total>0&&x.missing.length===0);
 else if(stock==='some')cand=scored.filter(x=>x.missing.length>0&&x.missing.length<x.total);
 else cand=scored;
 if(!cand.length)return null;const pick=cand[Math.floor(Math.random()*cand.length)];return{r:pick.r,missing:pick.missing}}
 
 // —— 选食材找菜谱：优先包含全部所选，其次部分匹配 ——
-export function matchRecipes(selectedIds){const sel=S.pantry.filter(p=>selectedIds.includes(p.id)&&(Number(p.qty)||0)>0);
+export function matchRecipes(selectedIds){const sel=S.pantry.filter(p=>selectedIds.includes(p.id)&&pantryInStock(p));
 const scored=S.recipes.map(r=>{const hit=sel.filter(p=>(r.ingredients||[]).some(i=>nameMatch(i.name,p.name)));return{r,hit,all:sel.length>0&&hit.length===sel.length}}).filter(x=>x.hit.length)
 .sort((a,b)=>b.hit.length-a.hit.length||Math.min(...a.hit.map(daysUntil))-Math.min(...b.hit.map(daysUntil)));
 return{all:scored.filter(x=>x.all),some:scored.filter(x=>!x.all)}}

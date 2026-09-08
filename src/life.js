@@ -26,30 +26,27 @@ mount.querySelectorAll('[data-dcat]').forEach(b=>b.onclick=()=>{renderDining.cat
 paintGrid()};draw()}
 
 function diningMinutes(d){return(Number(d.hours)||0)*60+(Number(d.minutes)||0)}
-function pickDining(venue,cat,place,pace,cal){
-  let pool=S.dining.filter(d=>(venue==='全部'||d.venue===venue)&&(cat==='全部'||d.category===cat)&&(place==='全部'||(d.place||'')===place));
+function pickDining(venue,cat,pace,cal){
+  let pool=S.dining.filter(d=>(venue==='全部'||d.venue===venue)&&(cat==='全部'||d.category===cat));
   if(pace==='fast')pool=pool.filter(d=>{const m=diningMinutes(d);return m>0&&m<=30});
   else if(pace==='hour')pool=pool.filter(d=>{const m=diningMinutes(d);return m>0&&m<=60});
   if(cal==='remain'){const goal=Number(S.nutrition?.goal)||0;if(goal){const remain=Math.max(0,goal-dayIntake(today()));pool=pool.filter(d=>d.calories==null||d.calories<=remain)}}
   if(!pool.length)return null;
   return pool[Math.floor(Math.random()*pool.length)];
 }
-function diningRandomDialog(){const dlg=document.querySelector('#dialog-root');let rvenue='全部',rcat='全部',rplace='全部',pace='any',cal='any',pick=null,miss='';
-const places=['全部',...new Set(S.dining.map(d=>(d.place||'').trim()).filter(Boolean))];
+function diningRandomDialog(){const dlg=document.querySelector('#dialog-root');let rvenue='全部',rcat='全部',pace='any',cal='any',pick=null,miss='';
 const venues=['全部',...diningVenues()];
-const cats=['全部',...diningCatsOf(rvenue)];
 const resultHtml=d=>{if(!d)return`<p class="muted" style="padding:6px 0">${esc(miss||'选好条件，点下面按钮开始随机。')}</p>`;
 const v=d.venue==='外卖'&&d.dineIn?'外卖 · 可堂食':(d.venue||'');
-return`<div class="random-result"><div class="random-head">${d.image?`<img src="${esc(imgSrc(d.image))}" alt="">`:`<span class="pick-thumb">${ico('utensils',22)}</span>`}<div><strong>${esc(d.name)}</strong><small>${esc([v,d.category].filter(Boolean).join(' · '))}${d.calories?` · ${d.calories} 千卡`:''}</small></div></div><div class="daily-actions"><button class="text-button" id="r-order">${ico('plus',13)} 就点这道</button></div></div>`};
-const draw=()=>{const goal=Number(S.nutrition?.goal)||0;const remain=Math.max(0,goal-dayIntake(today()));
-dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">FEELING HUNGRY</span><h2>随机来一道</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">大分类</span><div class="chips">${venues.map(v=>`<button type="button" class="filter ${rvenue===v?'chosen':''}" data-rv="${esc(v)}">${esc(v)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">小分类</span><div class="chips">${cats.map(c=>`<button type="button" class="filter ${rcat===c?'chosen':''}" data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">店名 / 品牌</span><div class="chips">${places.map(p=>`<button type="button" class="filter ${rplace===p?'chosen':''}" data-rp="${esc(p)}">${esc(p)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">热量</span><div class="chips">${[['any','不限'],['remain','今天额度内']].map(([v,l])=>`<button type="button" class="filter ${cal===v?'chosen':''}" data-cal="${v}">${l}</button>`).join('')}</div>${cal==='remain'?`<p class="muted" style="margin:8px 0 0">${goal?`今日还剩 ${remain} 千卡（目标 ${goal}）`:'还没设定每日热量目标，此项暂不筛选。'}</p>`:''}</div><div id="random-result">${resultHtml(pick)}</div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>关闭</button><button class="primary" id="roll">${ico('sparkle')} 随机来一道</button></div></div></div>`;
+return`<div class="random-result"><div class="random-head">${d.image?`<img src="${esc(imgSrc(d.image))}" alt="">`:`<span class="pick-thumb">${ico('utensils',22)}</span>`}<div><strong>${esc(d.name)}</strong><small>${esc([v,d.place,d.category].filter(Boolean).join(' · '))}${d.calories?` · ${d.calories} 千卡`:''}</small></div></div><div class="daily-actions"><button class="text-button" id="r-order">${ico('plus',13)} 就点这道</button></div></div>`};
+const draw=()=>{const cats=['全部',...diningCatsOf(rvenue)];if(rcat!=='全部'&&!cats.includes(rcat))rcat='全部';const goal=Number(S.nutrition?.goal)||0;const remain=Math.max(0,goal-dayIntake(today()));
+dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">FEELING HUNGRY</span><h2>随机来一道</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">大分类</span><div class="chips">${venues.map(v=>`<button type="button" class="filter ${rvenue===v?'chosen':''}" data-rv="${esc(v)}">${esc(v)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">小分类</span><div class="chips">${cats.map(c=>`<button type="button" class="filter ${rcat===c?'chosen':''}" data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">热量</span><div class="chips">${[['any','不限'],['remain','今天额度内']].map(([v,l])=>`<button type="button" class="filter ${cal===v?'chosen':''}" data-cal="${v}">${l}</button>`).join('')}</div>${cal==='remain'?`<p class="muted" style="margin:8px 0 0">${goal?`今日还剩 ${remain} 千卡（目标 ${goal}）`:'还没设定每日热量目标，此项暂不筛选。'}</p>`:''}</div><div id="random-result">${resultHtml(pick)}</div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>关闭</button><button class="primary" id="roll">${ico('sparkle')} 随机来一道</button></div></div></div>`;
 if(!dlg.open)dlg.showModal();
 dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
 dlg.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{rvenue=b.dataset.rv;rcat='全部';pick=null;miss='';draw()});
 dlg.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{rcat=b.dataset.rc;pick=null;miss='';draw()});
-dlg.querySelectorAll('[data-rp]').forEach(b=>b.onclick=()=>{rplace=b.dataset.rp;pick=null;miss='';draw()});
 dlg.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>{cal=b.dataset.cal;pick=null;miss='';draw()});
-(dlg.querySelector('#roll')??document.createElement('button')).onclick=()=>{if(!S.dining.length){pick=null;miss='还没有外出记录，先去新增一两家常点的。';draw();return}pick=pickDining(rvenue,rcat,rplace,pace,cal);miss=pick?'':'没有符合条件的外出餐，换个筛选再试。';draw()};
+(dlg.querySelector('#roll')??document.createElement('button')).onclick=()=>{if(!S.dining.length){pick=null;miss='还没有外出记录，先去新增一两家常点的。';draw();return}pick=pickDining(rvenue,rcat,pace,cal);miss=pick?'':'没有符合条件的外出餐，换个筛选再试。';draw()};
 dlg.querySelector('#r-order')?.addEventListener('click',()=>{if(!pick)return;dlg.close();orderDialog(pick)})};
 draw()}
 
@@ -91,7 +88,7 @@ mount.querySelectorAll('.cal-edit').forEach(inp=>{inp.onchange=()=>{const p=inp.
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 export function renderRecommend(mount){const exp=expiringItems();const eaten=dayIntake(today());const goal=S.nutrition.goal;const remain=Math.max(0,goal-eaten);
 const scored=S.recipes.map(r=>{let score=0;const reasons=[];const used=[];
-for(const ing of r.ingredients||[]){const p=S.pantry.find(pp=>pp.kind==='ingredient'&&nameMatch(pp.name,ing.name)&&(Number(pp.qty)||0)>0);if(!p)continue;used.push(p);const d=daysUntil(p.expiryDate);if(d<=2){score+=3;reasons.push(`消耗快过期的${p.name}`)}else score+=1}
+for(const ing of r.ingredients||[]){const p=S.pantry.find(pp=>pp.kind==='ingredient'&&nameMatch(pp.name,ing.name)&&pp.inStock!==false&&(Number(pp.qty)||0)>0);if(!p)continue;used.push(p);const d=daysUntil(p.expiryDate);if(d<=2){score+=3;reasons.push(`消耗快过期的${p.name}`)}else score+=1}
 if(used.length>=2)reasons.push(`${used.length} 种食材冰箱里都有`);
 if(r.calories){if(remain&&r.calories<=remain){score+=2;reasons.push(`热量 ${r.calories} 千卡，还在今天额度内`)}else if(remain&&r.calories>remain+400)score-=2}
 return{r,score,reasons:[...new Set(reasons)]}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
