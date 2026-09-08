@@ -13,6 +13,12 @@ export const weekday=s=>'日一二三四五六'[new Date(s+'T00:00:00').getDay()
 export const daysUntil=exp=>Math.round((Date.parse(exp+'T00:00:00')-Date.parse(today()+'T00:00:00'))/86400000);
 export const fmtTime=r=>{const h=Number(r.hours)||0,m=Number(r.minutes)||0;if(h&&m)return`${h}小时${m}分钟`;if(h)return`${h}小时`;return`${m||0}分钟`};
 export const uid=()=>crypto.randomUUID();
+export const DEFAULT_DINING_VENUES=['外卖','餐厅','堂食','其他'];
+export function defaultDiningCats(){return{外卖:['面食','快餐','轻食','甜点','饮品','其他'],餐厅:['火锅','轻食','面食','甜点','饮品','其他'],堂食:['套餐','面食','其他'],其他:['其他']}}
+export function diningVenues(){const v=S.cats?.diningVenue;return Array.isArray(v)&&v.length?v:DEFAULT_DINING_VENUES}
+export function diningCatsOf(venue){const m=S.cats?.diningCats&&typeof S.cats.diningCats==='object'&&!Array.isArray(S.cats.diningCats)?S.cats.diningCats:{};
+if(!venue||venue==='全部'){const all=[];for(const v of diningVenues())for(const c of m[v]||[])if(!all.includes(c))all.push(c);return all.length?all:['其他']}
+return(m[venue]&&m[venue].length)?m[venue]:['其他']}
 const norm=s=>String(s||'').replace(/[\s，。、,]/g,'').toLowerCase();
 export const nameMatch=(a,b)=>{a=norm(a);b=norm(b);return a.length>1&&b.length>1&&(a===b||a.includes(b)||b.includes(a))};
 export const parseAmount=n=>{const m=String(n||'').trim().match(/^(\d+(?:\.\d+)?)/);return m?Number(m[1]):null};
@@ -30,10 +36,10 @@ dish('牛油果鲜虾沙拉','轻食',0,15,1,'一碗清爽，也是一份认真�
 dish('香煎三文鱼','家常菜',0,20,2,'外皮微脆，内里柔嫩。',seedPhoto('photo-1467003909585-2f8a72700288'),[{name:'三文鱼',amount:'300g',role:'main'},{name:'柠檬',amount:'半个',role:'season'},{name:'芦笋',amount:'6根',role:'side'},{name:'盐',amount:'适量',role:'season'}],['三文鱼擦干水分，两面撒盐和黑胡椒。','平底锅加油，鱼皮朝下煎至金黄，翻面继续煎熟。','芦笋煎熟配在旁边，挤上柠檬汁。'],true,410,[],true,true),
 dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('photo-1528207776546-365bb710ee93'),[{name:'低筋面粉',amount:'150g',role:'main'},{name:'鸡蛋',amount:'1个',role:'main'},{name:'牛奶',amount:'150ml',role:'main'},{name:'泡打粉',amount:'4g',role:'season'},{name:'蜂蜜',amount:'适量',role:'side'}],['面粉、泡打粉过筛，与鸡蛋和牛奶混合成面糊。','不粘锅小火预热，倒入面糊，表面冒泡后翻面。','煎至两面金黄，搭配水果和蜂蜜。'],false,380),
 {...dish('蜂蜜柠檬气泡水','茶饮',0,8,1,'冰爽气泡配上蜂蜜柠檬，元气一整天。',seedPhoto('photo-1556679343-c7306c1976bc'),[{name:'柠檬',amount:'半个',role:'main'},{name:'蜂蜜',amount:'2勺',role:'main'},{name:'气泡水',amount:'1瓶',role:'main'},{name:'冰块',amount:'适量',role:'side'},{name:'薄荷叶',amount:'点缀',role:'side'}],['柠檬切片，与薄荷叶放入杯中。','倒入气泡水，加入蜂蜜搅匀。','加冰块即可享用。'],false,120,[{name:'甜度',options:['正常糖','少糖','无糖'],enabled:true}]),type:'drink'},
-{...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180),type:'snack'},
-{...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}]),type:'snack'}],
-dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',venue:'外卖',dineIn:true,category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',venue:'食堂',dineIn:false,category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
-cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点'],snack:['零食','速食','甜品','饮料'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],diningVenue:['外卖','餐厅','食堂','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
+{...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180)},
+{...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}])}],
+dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',venue:'外卖',dineIn:true,category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',venue:'堂食',dineIn:false,category:'套餐',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
+cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','零食','速食'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],diningVenue:['外卖','餐厅','堂食','其他'],diningCats:defaultDiningCats(),daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
 {id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},
 {id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',keep:'室温避光，熟透后冷藏',notes:''},
@@ -58,17 +64,34 @@ const base={specs:[],prep:false,defrost:false,...r,steps:(r.steps||[]).map(x=>({
 base.ingredients=(base.ingredients||[]).map(i=>({role:'main',...i}));
 if(!Array.isArray(base.specs)||!base.specs.length){const ids=Array.isArray(r.specGroupIds)?r.specGroupIds:[];if(ids.length&&legacyGroups)base.specs=legacyGroups.filter(g=>ids.includes(g.id)).map(g=>({name:g.name,options:[...g.options],enabled:true}))}
 if(!base.prep)base.prep=(r.steps||[]).some(x=>x.prep);
+if(base.type==='snack')base.type='dish';
 delete base.specGroupIds;
 return base});
 s.dining=(s.dining||[]).map(d=>{
-const venue=d.venue||(d.category==='食堂'?'食堂':'外卖');
+let venue=d.venue==='食堂'?'堂食':d.venue;
+if(!venue)venue=(d.category==='食堂'||d.category==='堂食')?'堂食':'外卖';
 return{type:'dining',place:'',...d,venue,dineIn:venue==='外卖'&&!!d.dineIn};
 });
 s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',keep:'',...p}));
 s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};if(!x.board&&base.category&&(s.cats?.daily||[]).includes(base.category))base.board='daily';return base});
 delete s.specGroups;
 for(const k of Object.keys(def))if(s[k]===undefined)s[k]=def[k];
-for(const g of Object.keys(def.cats))if(!Array.isArray(s.cats[g])||!s.cats[g].length)s.cats[g]=def.cats[g];
+if(!s.cats)s.cats={...def.cats};
+for(const g of Object.keys(def.cats)){
+if(g==='diningCats')continue;
+if(!Array.isArray(s.cats[g])||!s.cats[g].length)s.cats[g]=def.cats[g];
+}
+s.cats.diningVenue=(s.cats.diningVenue||[]).map(v=>v==='食堂'?'堂食':v);
+const seenV=new Set();s.cats.diningVenue=s.cats.diningVenue.filter(v=>{if(!v||seenV.has(v))return false;seenV.add(v);return true});
+if(!s.cats.diningVenue.length)s.cats.diningVenue=[...DEFAULT_DINING_VENUES];
+const defDC=defaultDiningCats();
+let dc=s.cats.diningCats;
+if(!dc||Array.isArray(dc)||typeof dc!=='object')dc={};
+if(dc['食堂']&&!dc['堂食']){dc['堂食']=dc['食堂'];delete dc['食堂']}
+for(const v of s.cats.diningVenue)if(!Array.isArray(dc[v])||!dc[v].length)dc[v]=[...(defDC[v]||['其他'])];
+for(const d of s.dining){const v=d.venue;if(!v)continue;if(!Array.isArray(dc[v]))dc[v]=[...(defDC[v]||['其他'])];if(d.category&&!dc[v].includes(d.category))dc[v].push(d.category)}
+s.cats.diningCats=dc;
+for(const r of s.recipes){if(r.category&&!(s.cats.dish||[]).includes(r.category)&&['零食','速食','甜品','饮料'].includes(r.category))s.cats.dish.push(r.category)}
 s.menu=s.menu||{};s.log=s.log||{};s.manualLog=s.manualLog||{};
 for(const d of Object.keys(s.menu))for(const m of Object.keys(s.menu[d]))s.menu[d][m]=(s.menu[d][m]||[]).map(it=>({qty:1,specs:{},note:'',deducted:[],...it}));
 return s}
