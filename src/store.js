@@ -185,7 +185,7 @@ function pruneManual(){const cur=monthOf(today()),prev=monthOf(addDays(cur+'-01'
 export function dayIntake(date){return dayEntries(date).reduce((n,e)=>n+(Number(e.calories)||0),0)}
 
 // —— 购买清单 ——
-export function pushToShopping(name,amount='',category='',board='food'){if(S.shopping.some(s=>s.name===name&&s.board===board))return;S.shopping.push({id:uid(),name,amount,checked:false,category,board})}
+export function pushToShopping(name,amount='',category='',board='food',extra={}){const hit=S.shopping.find(s=>s.name===name&&(s.board||'food')===board);const qty=extra.qty==null||extra.qty===''?null:Number(extra.qty);const unit=(extra.unit||'').trim();if(hit){if(amount)hit.amount=amount;if(qty!=null&&Number.isFinite(qty))hit.qty=qty;if(unit)hit.unit=unit;if(category)hit.category=category;return hit}S.shopping.push({id:uid(),name,amount,checked:false,category,board,qty:qty!=null&&Number.isFinite(qty)?qty:null,unit});return S.shopping[S.shopping.length-1]}
 export function generateShopping(){const start=mondayOf(today());const groups=[];
 for(let i=0;i<14;i++){const d=addDays(start,i);for(const[m]of MEALS)for(const item of menuItems(d,m)){if(item.done)continue;const r=refOf(item);if(!r||r.type==='dining')continue;
 for(const ing of r.ingredients||[]){const k=ing.name.trim();if(!k)continue;const a=String(ing.amount||'').trim();const info=a?parseAmountInfo(a):null;const pm=pantryMatches(k)[0]?.name||null;
