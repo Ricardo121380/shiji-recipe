@@ -170,12 +170,13 @@ export function defrostItemsFor(date){const out=[];for(const[m]of MEALS)for(cons
 export function prepUpcoming(days=7){const out=[];for(let i=0;i<days;i++){const d=addDays(today(),i);for(const x of prepItemsFor(d))out.push(x)}return out}
 
 // —— 已吃记录：以本周菜单勾选状态为唯一事实来源，随时刷新 ——
-export function derivedLog(){const out={};for(const d of Object.keys(S.menu))for(const m of Object.keys(S.menu[d]))for(const it of S.menu[d][m]){if(!it.done)continue;const r=refOf(it);(out[d]=out[d]||[]).push({meal:m,name:it.name,refId:it.refId,refType:it.refType,calories:Math.round((Number(r?.calories)||0)*(it.qty||1)),qty:it.qty||1,specs:it.specs||{}})}
-return out}
+export function derivedLog(){const out={};for(const d of Object.keys(S.menu))for(const m of Object.keys(S.menu[d]))S.menu[d][m].forEach((it,idx)=>{if(!it.done)return;const r=refOf(it);const auto=Math.round((Number(r?.calories)||0)*(it.qty||1));const calories=it.calories!=null&&it.calories!==''?Math.round(Number(it.calories)):auto;(out[d]=out[d]||[]).push({meal:m,name:it.name,refId:it.refId,refType:it.refType,calories,qty:it.qty||1,specs:it.specs||{},date:d,idx,source:'menu'})});return out}
 export function addManualEntry(date,meal,name,calories){(S.manualLog[date]=S.manualLog[date]||[]).push({id:uid(),meal,name,calories:Math.round(Number(calories)||0)});pruneManual()}
 export function removeManualEntry(date,id){if(S.manualLog[date])S.manualLog[date]=S.manualLog[date].filter(e=>e.id!==id);if(!S.manualLog[date].length)delete S.manualLog[date]}
 export function manualEntries(date){return S.manualLog[date]||[]}
-export function dayEntries(date){return[...(derivedLog()[date]||[]),...manualEntries(date).map(e=>({...e,specs:{},qty:1}))]}
+export function dayEntries(date){return[...(derivedLog()[date]||[]),...manualEntries(date).map(e=>({...e,specs:{},qty:1,date,source:'manual'}))]}
+export function monthDates(month){const set=new Set();for(const d of Object.keys(S.menu||{}))if(monthOf(d)===month&&Object.values(S.menu[d]||{}).some(arr=>(arr||[]).some(it=>it.done)))set.add(d);for(const d of Object.keys(S.manualLog||{}))if(monthOf(d)===month&&(S.manualLog[d]||[]).length)set.add(d);return[...set].sort()}
+export function setEntryCalories(entry,calories){const cal=Math.max(0,Math.round(Number(calories)||0));if(entry.id){const e=(S.manualLog[entry.date]||[]).find(x=>x.id===entry.id);if(e)e.calories=cal;return}const it=S.menu[entry.date]?.[entry.meal]?.[entry.idx];if(it)it.calories=cal}
 function pruneManual(){const cur=monthOf(today()),prev=monthOf(addDays(cur+'-01',-1));for(const d of Object.keys(S.manualLog))if(monthOf(d)!==cur&&monthOf(d)!==prev)delete S.manualLog[d]}
 export function dayIntake(date){return dayEntries(date).reduce((n,e)=>n+(Number(e.calories)||0),0)}
 
