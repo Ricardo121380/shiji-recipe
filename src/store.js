@@ -32,8 +32,8 @@ dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('pho
 {...dish('蜂蜜柠檬气泡水','茶饮',0,8,1,'冰爽气泡配上蜂蜜柠檬，元气一整天。',seedPhoto('photo-1556679343-c7306c1976bc'),[{name:'柠檬',amount:'半个',role:'main'},{name:'蜂蜜',amount:'2勺',role:'main'},{name:'气泡水',amount:'1瓶',role:'main'},{name:'冰块',amount:'适量',role:'side'},{name:'薄荷叶',amount:'点缀',role:'side'}],['柠檬切片，与薄荷叶放入杯中。','倒入气泡水，加入蜂蜜搅匀。','加冰块即可享用。'],false,120,[{name:'甜度',options:['正常糖','少糖','无糖'],enabled:true}]),type:'drink'},
 {...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180),type:'snack'},
 {...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}]),type:'snack'}],
-dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
-cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点'],snack:['零食','速食','甜品','饮料'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
+dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',venue:'外卖',dineIn:true,category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',venue:'食堂',dineIn:false,category:'食堂',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
+cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点'],snack:['零食','速食','甜品','饮料'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],diningVenue:['外卖','餐厅','食堂','其他'],dining:['面食','火锅','轻食','甜点','饮品','快餐','食堂','其他'],daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
 {id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},
 {id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',keep:'室温避光，熟透后冷藏',notes:''},
@@ -60,7 +60,10 @@ if(!Array.isArray(base.specs)||!base.specs.length){const ids=Array.isArray(r.spe
 if(!base.prep)base.prep=(r.steps||[]).some(x=>x.prep);
 delete base.specGroupIds;
 return base});
-s.dining=(s.dining||[]).map(d=>({type:'dining',place:'',...d}));
+s.dining=(s.dining||[]).map(d=>{
+const venue=d.venue||(d.category==='食堂'?'食堂':'外卖');
+return{type:'dining',place:'',...d,venue,dineIn:venue==='外卖'&&!!d.dineIn};
+});
 s.pantry=(s.pantry||[]).map(p=>({kind:'ingredient',brand:'',flavor:'',keep:'',...p}));
 s.shopping=(s.shopping||[]).map(x=>{const base={category:'',board:'food',...x};if(!x.board&&base.category&&(s.cats?.daily||[]).includes(base.category))base.board='daily';return base});
 delete s.specGroups;
