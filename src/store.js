@@ -3,6 +3,8 @@ const KEY='shiji-state-v2', OLD_KEY='shiji-recipes-v1';
 export const MEALS=[['breakfast','早餐'],['lunch','午餐'],['dinner','晚餐'],['extra','加餐']];
 export const PET={ok:'能吃',care:'谨慎',no:'不能',na:'—'};
 export const EXPIRY_FILTERS=[['all','全部'],['fresh','新鲜（>7天）'],['soon','快过期（1-7天）'],['expired','已过期']];
+export const FRIDGE_KINDS=[['ingredient','食材'],['snack','速食零食'],['other','其他']];
+export function fridgeCatsOf(kind){if(kind==='snack')return(S.cats?.fridgeSnack&&S.cats.fridgeSnack.length)?S.cats.fridgeSnack:['其他'];if(kind==='other')return(S.cats?.fridgeOther&&S.cats.fridgeOther.length)?S.cats.fridgeOther:['其他'];return(S.cats?.fridge&&S.cats.fridge.length)?S.cats.fridge:['其他']}
 export const pantryCalUnit=u=>{const s=String(u||'').trim();if(s==='bag')return'袋';return s};
 export const fmtPantryCal=p=>{if(p?.calories==null||p.calories==='')return'';const n=Number(p.calories);if(!Number.isFinite(n)||n<=0)return'';const u=pantryCalUnit(p.calUnit)||'100g';return`${n} 千卡/${u}`}
 export const pantryInStock=p=>!!p&&p.inStock!==false&&(Number(p.qty)||0)>0;
@@ -43,7 +45,7 @@ dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('pho
 {...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180)},
 {...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}])}],
 dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',venue:'外卖',dineIn:true,category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',venue:'堂食',dineIn:false,category:'套餐',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
-cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','零食','速食'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],diningVenue:['外卖','餐厅','堂食','其他'],diningCats:defaultDiningCats(),daily:['清洁用品','纸品','厨房用品','洗护','其他']},
+cats:{dish:['家常菜','主食','轻食','汤羹','烘焙甜点','零食','速食'],drink:['咖啡','奶茶','果汁','茶饮','特调','其他'],fridge:['蔬菜','肉类','水果','水产','乳制品','主食冻品','蛋奶','其他'],fridgeSnack:['零食饮料','宠物食品','其他'],fridgeOther:['其他'],diningVenue:['外卖','餐厅','堂食','其他'],diningCats:defaultDiningCats(),daily:['清洁用品','纸品','厨房用品','洗护','其他']},
 pantry:[
 {id:uid(),name:'鸡蛋',kind:'ingredient',brand:'',flavor:'',category:'肉类',qty:10,unit:'个',prodDate:addDays(t,-6),expiryDate:addDays(t,14),lowAt:2,petCat:'care',petDog:'ok',keep:'冷藏存放',notes:'煮熟后猫狗都可以少量吃'},
 {id:uid(),name:'番茄',kind:'ingredient',brand:'',flavor:'',category:'蔬菜',qty:4,unit:'个',prodDate:addDays(t,-4),expiryDate:addDays(t,1),lowAt:1,petCat:'na',petDog:'na',keep:'室温避光，熟透后冷藏',notes:''},
