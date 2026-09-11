@@ -1,13 +1,19 @@
 // 饭Fun 云同步 API：D1 存记录，R2 存配图；旧 KV 快照只读回退
 import { SYNC_VERSION, extractImageIds, d1Meta, d1Load, d1Save, gcR2 } from '../../_lib/syncdb.js';
+import { isClaimedCode } from '../../_lib/auth.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS } });
 const valid = code => /^[a-z0-9-]{8,48}$/.test(String(code || ''));
+
+async function denyClaimed(env, code) {
+  if (await isClaimedCode(env, code)) return json({ error: '该同步码已升级为账号，请登录后同步' }, 401);
+  return null;
+}
 
 export async function onRequestOptions() { return new Response(null, { status: 204, headers: CORS }); }
 
@@ -27,6 +33,8 @@ async function kvMeta(env, code) {
 export async function onRequestGet({ request, params, env }) {
   const code = String(params.code || '').toLowerCase();
   if (!valid(code)) return json({ error: '同步码格式不正确' }, 400);
+  const denied = await denyClaimed(env, code);
+  if (denied) return denied;
   const light = new URL(request.url).searchParams.get('meta') === '1';
 
   if (env.DB) {
@@ -56,6 +64,8 @@ export async function onRequestGet({ request, params, env }) {
 export async function onRequestPut({ request, params, env }) {
   const code = String(params.code || '').toLowerCase();
   if (!valid(code)) return json({ error: '同步码格式不正确' }, 400);
+  const denied = await denyClaimed(env, code);
+  if (denied) return denied;
   const body = await request.text();
   if (!body || body.length > 8 * 1024 * 1024) return json({ error: '数据过大，请减少配图后重试' }, 413);
   let parsed;
