@@ -1,6 +1,6 @@
 // 站点开关。暂停开放：true；恢复：改回 false，然后 npm run deploy 并 git push。
 // 只拦访问，不改、不删 D1 / R2 / KV 里的云端数据。
-export const SITE_CLOSED = true;
+export const SITE_CLOSED = false;
 
 export const closedHtml = `<!doctype html>
 <html lang="zh-CN">
