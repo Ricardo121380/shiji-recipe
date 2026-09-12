@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { SITE_CLOSED, closedHtml } from './functions/_lib/site.js'
 
 function sourceId() {
   const h = createHash('sha256')
@@ -21,8 +22,18 @@ export default defineConfig({
   base: './',
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   plugins: [{
+    name: 'site-closed',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        if (!SITE_CLOSED) return html
+        return closedHtml
+      },
+    },
+  }, {
     name: 'shiji-build-id',
     transformIndexHtml(html) {
+      if (SITE_CLOSED) return html
       return html.replace('<head>', `<head><meta name="shiji-build" content="${BUILD_ID}">`)
     },
     generateBundle() {
