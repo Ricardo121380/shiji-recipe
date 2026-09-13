@@ -35,14 +35,14 @@ const unitMatch=(a,b)=>{a=norm(a);b=norm(b);return!!a&&!!b&&(a===b||a.includes(b
 const seedPhoto=id=>`https://images.unsplash.com/${id}?auto=format&fit=crop&w=1000&q=85`;
 
 function seedState(){const t=today();
-const dish=(n,cat,h,mi,serv,desc,img,ings,steps,fav,cal,specs=[],prep=false,defrost=false,temps=[])=>({id:uid(),type:'dish',name:n,category:cat,hours:h,minutes:mi,servings:serv,calories:cal,description:desc,image:img,ingredients:ings,steps:steps.map(s=>({text:s,image:''})),favorite:fav,specs,prep,defrost,temps});
+const dish=(n,cat,h,mi,serv,desc,img,ings,steps,fav,cal,specs=[],prep=false,defrost=false)=>({id:uid(),type:'dish',name:n,category:cat,hours:h,minutes:mi,servings:serv,calories:cal,description:desc,image:img,ingredients:ings,steps:steps.map(s=>({text:s,image:''})),favorite:fav,specs,prep,defrost});
 return {
 recipes:[
 dish('番茄罗勒意面','主食',0,25,2,'酸甜的番茄遇上新鲜罗勒。',seedPhoto('photo-1473093226795-af9932fe5856'),[{name:'意大利面',amount:'200g',role:'main'},{name:'樱桃番茄',amount:'200g',role:'main'},{name:'新鲜罗勒',amount:'适量',role:'side'},{name:'大蒜',amount:'3瓣',role:'side'},{name:'橄榄油',amount:'2勺',role:'season'},{name:'盐',amount:'适量',role:'season'}],['锅中加入足量清水和一小勺盐，煮沸后放入意大利面，按包装时间煮至自己喜欢的软硬度。留半碗煮面水备用。','番茄洗净对半切，大蒜切片。平底锅倒入橄榄油，小火炒香蒜片，加入番茄翻炒至变软出汁。','加入意面和少量煮面水，翻拌均匀。用盐和黑胡椒调味，最后放入新鲜罗勒，装盘即可。'],true,520,[{name:'口味',options:['清淡','微辣','中辣'],enabled:true}]),
 dish('牛油果鲜虾沙拉','轻食',0,15,1,'一碗清爽，也是一份认真照顾自己的心意。',seedPhoto('photo-1512621776951-a57141f2eefd'),[{name:'牛油果',amount:'1个',role:'main'},{name:'虾仁',amount:'100g',role:'main'},{name:'生菜',amount:'适量',role:'side'},{name:'小番茄',amount:'6个',role:'side'},{name:'柠檬',amount:'半个',role:'season'}],['洗净蔬菜并沥干，牛油果切片，小番茄对半切。','虾仁煮熟，和蔬菜放入碗中。','加入橄榄油、柠檬汁和少许盐，轻轻拌匀。'],false,320,[{name:'忌口',options:['无海鲜','无花生'],enabled:true}]),
 dish('香煎三文鱼','家常菜',0,20,2,'外皮微脆，内里柔嫩。',seedPhoto('photo-1467003909585-2f8a72700288'),[{name:'三文鱼',amount:'300g',role:'main'},{name:'柠檬',amount:'半个',role:'season'},{name:'芦笋',amount:'6根',role:'side'},{name:'盐',amount:'适量',role:'season'}],['三文鱼擦干水分，两面撒盐和黑胡椒。','平底锅加油，鱼皮朝下煎至金黄，翻面继续煎熟。','芦笋煎熟配在旁边，挤上柠檬汁。'],true,410,[],true,true),
 dish('周末松饼','烘焙甜点',0,30,2,'慢一点的早晨。',seedPhoto('photo-1528207776546-365bb710ee93'),[{name:'低筋面粉',amount:'150g',role:'main'},{name:'鸡蛋',amount:'1个',role:'main'},{name:'牛奶',amount:'150ml',role:'main'},{name:'泡打粉',amount:'4g',role:'season'},{name:'蜂蜜',amount:'适量',role:'side'}],['面粉、泡打粉过筛，与鸡蛋和牛奶混合成面糊。','不粘锅小火预热，倒入面糊，表面冒泡后翻面。','煎至两面金黄，搭配水果和蜂蜜。'],false,380),
-{...dish('蜂蜜柠檬气泡水','茶饮',0,8,1,'冰爽气泡配上蜂蜜柠檬，元气一整天。',seedPhoto('photo-1556679343-c7306c1976bc'),[{name:'柠檬',amount:'半个',role:'main'},{name:'蜂蜜',amount:'2勺',role:'main'},{name:'气泡水',amount:'1瓶',role:'main'},{name:'冰块',amount:'适量',role:'side'},{name:'薄荷叶',amount:'点缀',role:'side'}],['柠檬切片，与薄荷叶放入杯中。','倒入气泡水，加入蜂蜜搅匀。','加冰块即可享用。'],false,120,[{name:'甜度',options:['正常糖','少糖','无糖'],enabled:true}],['冷']),type:'drink'},
+{...dish('蜂蜜柠檬气泡水','茶饮',0,8,1,'冰爽气泡配上蜂蜜柠檬，元气一整天。',seedPhoto('photo-1556679343-c7306c1976bc'),[{name:'柠檬',amount:'半个',role:'main'},{name:'蜂蜜',amount:'2勺',role:'main'},{name:'气泡水',amount:'1瓶',role:'main'},{name:'冰块',amount:'适量',role:'side'},{name:'薄荷叶',amount:'点缀',role:'side'}],['柠檬切片，与薄荷叶放入杯中。','倒入气泡水，加入蜂蜜搅匀。','加冰块即可享用。'],false,120,[{name:'甜度',options:['正常糖','少糖','无糖'],enabled:true}]),type:'drink'},
 {...dish('酸奶水果杯','零食',0,5,1,'五分钟搞定的下午加餐。',seedPhoto('photo-1488477181946-6428a0291777'),[{name:'酸奶',amount:'1杯',role:'main'},{name:'香蕉',amount:'1根',role:'main'},{name:'燕麦脆',amount:'适量',role:'side'}],['香蕉切片，与酸奶分层装入杯中。','撒上燕麦脆即可。'],false,180)},
 {...dish('即食鸡胸肉','速食',0,2,1,'开袋即食的蛋白质补充。','',[{name:'鸡胸肉',amount:'1袋'}],['微波加热 30 秒口感更好。'],false,150,[{name:'口味',options:['原味','黑椒'],enabled:true}])}],
 dining:[{id:uid(),name:'番茄牛腩面',place:'楼下面馆',venue:'餐馆',takeout:true,dineIn:true,category:'面食',calories:650,hours:0,minutes:40,servings:1,description:'常点的外卖，汤头浓郁。',image:seedPhoto('photo-1555126634-323283e090fa')},{id:uid(),name:'两荤一素',place:'公司食堂',venue:'餐馆',takeout:false,dineIn:true,category:'套餐',calories:700,hours:0,minutes:30,servings:1,description:'工作日午餐主力。',image:''}],
@@ -67,7 +67,7 @@ if(!Array.isArray(s.daily)||(seeded&&!s.daily.length))s.daily=def.daily;
 if(s.settings&&!s.settings.dailySeeded)s.settings.dailySeeded=true;
 const legacyGroups=Array.isArray(s.specGroups)?s.specGroups:null;
 s.recipes=(s.recipes||[]).map(r=>{
-const base={specs:[],temps:[],prep:false,defrost:false,...r,steps:(r.steps||[]).map(x=>({image:'',...x}))};
+const base={specs:[],prep:false,defrost:false,...r,steps:(r.steps||[]).map(x=>({image:'',...x}))};
 base.ingredients=(base.ingredients||[]).map(i=>({role:'main',...i}));
 if(!Array.isArray(base.specs)||!base.specs.length){const ids=Array.isArray(r.specGroupIds)?r.specGroupIds:[];if(ids.length&&legacyGroups)base.specs=legacyGroups.filter(g=>ids.includes(g.id)).map(g=>({name:g.name,options:[...g.options],enabled:true}))}
 if(!base.prep)base.prep=(r.steps||[]).some(x=>x.prep);
@@ -108,7 +108,7 @@ for(const d of s.dining){const v=d.venue;if(!v)continue;if(!Array.isArray(dc[v])
 s.cats.diningCats=dc;
 for(const r of s.recipes){if(r.category&&!(s.cats.dish||[]).includes(r.category)&&['零食','速食','甜品','饮料'].includes(r.category))s.cats.dish.push(r.category)}
 s.menu=s.menu||{};s.log=s.log||{};s.manualLog=s.manualLog||{};
-for(const d of Object.keys(s.menu))for(const m of Object.keys(s.menu[d]))s.menu[d][m]=(s.menu[d][m]||[]).map(it=>({qty:1,specs:{},note:'',calories:null,deducted:[],...it}));
+for(const d of Object.keys(s.menu))for(const m of Object.keys(s.menu[d]))s.menu[d][m]=(s.menu[d][m]||[]).map(it=>({qty:1,specs:{},note:'',deducted:[],...it}));
 return s}
 
 function migrateV1(){try{const raw=JSON.parse(localStorage.getItem(OLD_KEY));if(!Array.isArray(raw))return null;const s=seedState();const t=today();s.recipes=convertV1Recipes(raw);
@@ -171,7 +171,6 @@ export function addToMenu(date,meal,ref,qty=1,specs={},note=''){if(!S.menu[date]
 export function removeMenuItem(date,meal,idx){const it=menuItems(date,meal)[idx];if(!it)return;
 if(it.done){restoreDeducted(it.deducted);it.deducted=[]}
 S.menu[date]?.[meal]?.splice(idx,1)}
-export function addCustomItem(date,meal,name,calories=null,note=''){if(!S.menu[date])S.menu[date]={};(S.menu[date][meal]=S.menu[date][meal]||[]).push({refType:'custom',refId:'',name,done:false,qty:1,specs:{},note,calories:calories==null||calories===''?null:Math.max(0,Math.round(Number(calories))),deducted:[]})}
 export function changeItemQty(date,meal,idx,delta){const it=menuItems(date,meal)[idx];if(!it)return;it.qty=Math.max(1,(Number(it.qty)||1)+delta)}
 
 // 勾选「已吃」→ 记录 + 扣库存；取消 → 撤销记录 + 回补库存
@@ -186,7 +185,7 @@ export function defrostItemsFor(date){const out=[];for(const[m]of MEALS)for(cons
 export function prepUpcoming(days=7){const out=[];for(let i=0;i<days;i++){const d=addDays(today(),i);for(const x of prepItemsFor(d))out.push(x)}return out}
 
 // —— 已吃记录：以本周菜单勾选状态为唯一事实来源，随时刷新 ——
-export function derivedLog(){const out={};for(const d of Object.keys(S.menu))for(const m of Object.keys(S.menu[d]))S.menu[d][m].forEach((it,idx)=>{if(!it.done)return;const r=refOf(it);const auto=Math.round((Number(r?.calories)||0)*(it.qty||1));const calories=it.calories!=null&&it.calories!==''?Math.round(Number(it.calories)):auto;(out[d]=out[d]||[]).push({meal:m,name:it.name,refId:it.refId,refType:it.refType,calories,qty:it.qty||1,specs:it.specs||{},note:it.note||'',date:d,idx,source:'menu'})});return out}
+export function derivedLog(){const out={};for(const d of Object.keys(S.menu))for(const m of Object.keys(S.menu[d]))S.menu[d][m].forEach((it,idx)=>{if(!it.done)return;const r=refOf(it);const auto=Math.round((Number(r?.calories)||0)*(it.qty||1));const calories=it.calories!=null&&it.calories!==''?Math.round(Number(it.calories)):auto;(out[d]=out[d]||[]).push({meal:m,name:it.name,refId:it.refId,refType:it.refType,calories,qty:it.qty||1,specs:it.specs||{},date:d,idx,source:'menu'})});return out}
 export function addManualEntry(date,meal,name,calories){(S.manualLog[date]=S.manualLog[date]||[]).push({id:uid(),meal,name,calories:Math.round(Number(calories)||0)});pruneManual()}
 export function removeManualEntry(date,id){if(S.manualLog[date])S.manualLog[date]=S.manualLog[date].filter(e=>e.id!==id);if(!S.manualLog[date].length)delete S.manualLog[date]}
 export function manualEntries(date){return S.manualLog[date]||[]}

@@ -30,7 +30,7 @@ function snapshot(meta){
   const cloudN=Number(meta.recipes??meta.data?.state?.recipes?.length)||0;
   const empty=meta.empty===true||(!meta.updatedAt&&!meta.data&&!cloudN);
   const cloudNewer=!!(meta.updatedAt&&meta.updatedAt>lastSyncAt());
-  const plan={meta,localN,cloudN,cloudNewer,localDirty:(Number(S.settings?.updatedAt||0)>Date.parse(lastSyncAt()||0)),empty};
+  const plan={meta,localN,cloudN,cloudNewer,localDirty:dirty,empty};
   cloudNewerFlag=cloudNewer;
   lastCloudAtVal=meta.updatedAt||'';
   lastCloudRecipesVal=cloudN;
@@ -317,4 +317,4 @@ setTimeout(async()=>{try{await resumeSession()}catch{} try{await repairImages()}
 setInterval(()=>tick(),30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});
 window.addEventListener('online',()=>tick())}
-export function onLocalChange(){dirty=true;if(S.settings)S.settings.updatedAt=Date.now();markDirty()}
+export function onLocalChange(){dirty=true;markDirty()}
