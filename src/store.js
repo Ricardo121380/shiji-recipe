@@ -7,6 +7,8 @@ export const MEALS = [
   ['dinner', '晚餐'],
   ['extra', '加餐'],
 ];
+// 饮品可选温度
+export const TEMPS = ['冷', '常温', '热'];
 export const PET = { ok: '能吃', care: '谨慎', no: '不能', na: '—' };
 export const EXPIRY_FILTERS = [
   ['all', '全部'],
@@ -270,6 +272,7 @@ function seedState() {
           [{ name: '甜度', options: ['正常糖', '少糖', '无糖'], enabled: true }],
         ),
         type: 'drink',
+        temps: ['冷'],
       },
       {
         ...dish(
@@ -532,12 +535,14 @@ function normalizeState(s) {
   s.recipes = (s.recipes || []).map(r => {
     const base = {
       specs: [],
+      temps: [],
       prep: false,
       defrost: false,
       ...r,
       steps: (r.steps || []).map(x => ({ image: '', ...x })),
     };
     base.ingredients = (base.ingredients || []).map(i => ({ role: 'main', ...i }));
+    base.temps = Array.isArray(base.temps) ? TEMPS.filter(t => base.temps.includes(t)) : [];
     if (!Array.isArray(base.specs) || !base.specs.length) {
       const ids = Array.isArray(r.specGroupIds) ? r.specGroupIds : [];
       if (ids.length && legacyGroups)
@@ -797,6 +802,14 @@ export const defrostNames = r => {
   return hits.length ? hits : [(r?.ingredients || [])[0]?.name].filter(Boolean);
 };
 export const enabledSpecs = r => (r?.specs || []).filter(sp => sp.enabled && sp.name && sp.options?.length);
+// 点菜时可选的规格组：菜谱自定义规格 + 饮品温度（已有同名「温度」规格时不重复）
+export function orderSpecGroups(r) {
+  const groups = enabledSpecs(r);
+  const temps = r?.type === 'drink' && Array.isArray(r.temps) ? r.temps : [];
+  if (temps.length && !groups.some(g => g.name === '温度'))
+    groups.push({ name: '温度', options: TEMPS.filter(t => temps.includes(t)), enabled: true });
+  return groups;
+}
 
 // —— 冰箱 ——
 export function pantryMatches(ingName) {
@@ -862,6 +875,25 @@ export function addToMenu(date, meal, ref, qty = 1, specs = {}, note = '') {
     qty,
     specs,
     note,
+    deducted: [],
+  });
+}
+// 周菜单里的自定义项（不关联菜谱，如外卖披萨）；calories 为整条的热量
+export function addCustomItem(date, meal, name, calories = null, note = '') {
+  if (!S.menu[date]) S.menu[date] = {};
+  const cal =
+    calories == null || calories === '' || !Number.isFinite(Number(calories))
+      ? null
+      : Math.max(0, Math.round(Number(calories)));
+  (S.menu[date][meal] = S.menu[date][meal] || []).push({
+    refType: 'custom',
+    refId: '',
+    name,
+    done: false,
+    qty: 1,
+    specs: {},
+    note,
+    calories: cal,
     deducted: [],
   });
 }
@@ -942,6 +974,7 @@ export function derivedLog() {
           calories,
           qty: it.qty || 1,
           specs: it.specs || {},
+          note: it.note || '',
           date: d,
           idx,
           source: 'menu',
@@ -1113,7 +1146,9 @@ export function matchRecipes(selectedIds) {
     })
     .filter(x => x.hit.length)
     .sort(
-      (a, b) => b.hit.length - a.hit.length || Math.min(...a.hit.map(daysUntil)) - Math.min(...b.hit.map(daysUntil)),
+      (a, b) =>
+        b.hit.length - a.hit.length ||
+        Math.min(...a.hit.map(p => daysUntil(p.expiryDate))) - Math.min(...b.hit.map(p => daysUntil(p.expiryDate))),
     );
   return { all: scored.filter(x => x.all), some: scored.filter(x => !x.all) };
 }

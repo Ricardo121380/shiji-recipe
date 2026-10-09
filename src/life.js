@@ -286,7 +286,8 @@ const logLine = e => {
           .map(([k, v]) => v)
           .join('/')
       : '';
-  return `${e.name}${e.qty > 1 ? ` ×${e.qty}` : ''}${spec}`;
+  const note = e.note ? ' · ' + e.note : '';
+  return `${e.name}${e.qty > 1 ? ` ×${e.qty}` : ''}${spec}${note}`;
 };
 export function renderJournal(mount) {
   const cur = renderJournal.month || monthOf(today());

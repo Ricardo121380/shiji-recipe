@@ -16,6 +16,7 @@ import {
   FRIDGE_KINDS,
   toast,
   addToMenu,
+  addCustomItem,
   removeMenuItem,
   setItemDone,
   menuItems,
@@ -31,7 +32,7 @@ import {
   itemSpecText,
   refHasPrep,
   refNeedsDefrost,
-  enabledSpecs,
+  orderSpecGroups,
   prepItemsFor,
   prepUpcoming,
   defrostItemsFor,
@@ -69,7 +70,7 @@ export function orderDialog(ref, preset = {}) {
   for (let i = -2; i <= 6; i++) days.push(addDays(t, i));
   if (date && !days.includes(date)) days.unshift(date);
   const specs = { ...(preset.specs || {}) };
-  const groups = enabledSpecs(ref);
+  const groups = orderSpecGroups(ref);
   const mealLb = MEALS.find(m => m[0] === meal)?.[1] || meal;
   dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">ORDER THIS</span><h2>点「${esc(ref.name)}」</h2>${ref.calories ? `<span class="muted">${ref.calories} 千卡/份</span>` : ''}${lockSlot ? `<span class="muted">${fmtDate(date)} 周${weekday(date)}${orderDayHint(date)} · ${mealLb}</span>` : ''}</div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${lockSlot ? '' : `<div class="field"><span class="cat-label">就餐日期</span><div class="chips" id="od-days">${days.map(d => `<button type="button" class="filter ${d === date ? 'chosen' : ''}" data-date="${d}">${fmtDate(d)} 周${weekday(d)}${orderDayHint(d)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">餐次</span><div class="chips" id="od-meals">${MEALS.map(([m, ml]) => `<button type="button" class="filter ${m === meal ? 'chosen' : ''}" data-meal="${m}">${ml}</button>`).join('')}</div></div>`}<div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="od-minus">−</button><strong id="od-qty">${qty}</strong><button type="button" class="qty-btn" id="od-plus">＋</button></div></div>${groups.map(g => `<div class="field"><span class="cat-label">${esc(g.name)}（可选）</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o => `<button type="button" class="filter ${specs[g.name] === o ? 'chosen' : ''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref.type === 'dining' ? `<label class="field">备注 <span class="optional">选填，如：少辣、不要香菜</span><input id="od-note" maxlength="60"></label>` : ''}</div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="od-add">${ico('check')} 加入本周菜单</button></div></div></div>`;
   dlg.showModal();
@@ -121,14 +122,33 @@ export function menuAddDialog(date, meal, onDone) {
   const dlg = document.querySelector('#dialog-root');
   let tab = 'dish',
     q = '';
-  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m => m[0] === meal)[1]}</span><h2>点菜</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><label class="search">${ico('search', 15)}<input id="pick-search" placeholder="搜索名称…"></label><div class="pick-list" id="pick-list"></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button></div></div></div>`;
+  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m => m[0] === meal)[1]}</span><h2>点菜</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button><button data-tab="custom">自定义</button></div><label class="search" id="pick-search-box">${ico('search', 15)}<input id="pick-search" placeholder="搜索名称…"></label><div class="pick-list" id="pick-list"></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button></div></div></div>`;
   dlg.showModal();
   const close = () => dlg.close();
   dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = close));
   const list = dlg.querySelector('#pick-list'),
     search = dlg.querySelector('#pick-search');
+  const drawCustom = () => {
+    list.innerHTML = `<div class="custom-item-form"><label class="field">名称 <span class="required">*</span><input id="cm-name" maxlength="30" placeholder="例如：外卖披萨"></label><label class="field">热量（千卡） <span class="optional">选填，勾选已吃后计入</span><input id="cm-cal" type="number" min="0" max="9999" placeholder="例如：800"></label><label class="field">备注 <span class="optional">选填</span><input id="cm-note" maxlength="60" placeholder="例如：和同事拼单"></label><button type="button" class="primary" id="cm-add">${ico('check')} 加入本周菜单</button></div>`;
+    list.querySelector('#cm-add').onclick = () => {
+      const name = list.querySelector('#cm-name').value.trim();
+      if (!name) {
+        toast('请填写名称');
+        return;
+      }
+      const cal = list.querySelector('#cm-cal').value;
+      const note = list.querySelector('#cm-note').value.trim();
+      update(() => addCustomItem(date, meal, name, cal, note));
+      dlg.close();
+      toast(`已加入「${name}」，吃过后点 ✓ 记热量`);
+      onDone?.();
+    };
+    list.querySelector('#cm-name').focus();
+  };
   const draw = () => {
     dlg.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('chosen', b.dataset.tab === tab));
+    dlg.querySelector('#pick-search-box').style.display = tab === 'custom' ? 'none' : '';
+    if (tab === 'custom') return drawCustom();
     const src = (tab === 'dining' ? S.dining : S.recipes.filter(r => r.type === tab)).filter(
       x => x.name.toLowerCase().includes(q) || (tab === 'dining' && (x.place || '').toLowerCase().includes(q)),
     );
@@ -172,8 +192,9 @@ function editMenuItem(date, meal, idx) {
   let qty = item.qty || 1;
   const specs = { ...(item.specs || {}) };
   const ref = refOf(item);
-  const groups = ref ? enabledSpecs(ref) : [];
-  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m => m[0] === meal)[1]}</span><h2>编辑「${esc(item.name)}」</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="em-minus">−</button><strong id="em-qty">${qty}</strong><button type="button" class="qty-btn" id="em-plus">＋</button></div></div>${groups.map(g => `<div class="field"><span class="cat-label">${esc(g.name)}</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o => `<button type="button" class="filter ${specs[g.name] === o ? 'chosen' : ''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref?.type === 'dining' ? `<label class="field">备注 <input id="em-note" maxlength="60" value="${esc(item.note || '')}"></label>` : ''}<div class="field"><span class="cat-label">更换菜品</span><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><div class="pick-list" id="em-list" style="max-height:26dvh"></div></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="em-save">${ico('check')} 保存</button></div></div></div>`;
+  const custom = item.refType === 'custom';
+  const groups = ref ? orderSpecGroups(ref) : [];
+  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m => m[0] === meal)[1]}</span><h2>编辑「${esc(item.name)}」</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${custom ? `<label class="field">名称 <span class="required">*</span><input id="em-name" maxlength="30" value="${esc(item.name)}"></label><label class="field">热量（千卡） <span class="optional">选填</span><input id="em-cal" type="number" min="0" max="9999" value="${item.calories ?? ''}"></label><label class="field">备注 <span class="optional">选填</span><input id="em-note" maxlength="60" value="${esc(item.note || '')}"></label>` : `<div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="em-minus">−</button><strong id="em-qty">${qty}</strong><button type="button" class="qty-btn" id="em-plus">＋</button></div></div>`}${groups.map(g => `<div class="field"><span class="cat-label">${esc(g.name)}</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o => `<button type="button" class="filter ${specs[g.name] === o ? 'chosen' : ''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref?.type === 'dining' ? `<label class="field">备注 <input id="em-note" maxlength="60" value="${esc(item.note || '')}"></label>` : ''}<div class="field"><span class="cat-label">更换菜品</span><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><div class="pick-list" id="em-list" style="max-height:26dvh"></div></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="em-save">${ico('check')} 保存</button></div></div></div>`;
   dlg.showModal();
   dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
   (dlg.querySelector('#em-minus') ?? document.createElement('button')).onclick = () => {
@@ -217,6 +238,7 @@ function editMenuItem(date, meal, idx) {
             const it = menuItems(date, meal)[idx];
             if (!it) return;
             if (it.done) setItemDone(date, meal, idx, false);
+            if (it.refType === 'custom') it.calories = null;
             it.refType = ref2.type === 'dining' ? 'dining' : 'recipe';
             it.refId = ref2.id;
             it.name = ref2.name;
@@ -238,6 +260,25 @@ function editMenuItem(date, meal, idx) {
   );
   drawList();
   (dlg.querySelector('#em-save') ?? document.createElement('button')).onclick = () => {
+    if (custom) {
+      const name = dlg.querySelector('#em-name').value.trim();
+      if (!name) {
+        toast('请填写名称');
+        return;
+      }
+      const raw = dlg.querySelector('#em-cal').value;
+      update(() => {
+        const it = menuItems(date, meal)[idx];
+        if (!it) return;
+        it.name = name;
+        it.calories = raw === '' || !Number.isFinite(Number(raw)) ? null : Math.max(0, Math.round(Number(raw)));
+        it.note = dlg.querySelector('#em-note').value.trim();
+      });
+      dlg.close();
+      toast('已更新');
+      renderWeek(V());
+      return;
+    }
     update(() => {
       const it = menuItems(date, meal)[idx];
       if (!it) return;

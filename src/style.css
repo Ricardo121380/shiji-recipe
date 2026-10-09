@@ -2432,3 +2432,13 @@ dialog::backdrop {
     scroll-behavior: auto !important;
   }
 }
+
+/* 周菜单「自定义」项表单 */
+.custom-item-form {
+  display: grid;
+  gap: 10px;
+  padding: 4px 2px 8px;
+}
+.custom-item-form .primary {
+  justify-self: end;
+}
