@@ -7,7 +7,11 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS } });
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
+  });
 const valid = code => /^[a-z0-9-]{8,48}$/.test(String(code || ''));
 
 async function denyClaimed(env, code) {
@@ -15,19 +19,30 @@ async function denyClaimed(env, code) {
   return null;
 }
 
-export async function onRequestOptions() { return new Response(null, { status: 204, headers: CORS }); }
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 async function kvMeta(env, code) {
   const side = await env.SYNC_KV.get('sync:' + code + ':meta');
   if (side) {
-    try { return { empty: false, ...JSON.parse(side) } } catch {}
+    try {
+      return { empty: false, ...JSON.parse(side) };
+    } catch {}
   }
   const listed = await env.SYNC_KV.list({ prefix: 'sync:' + code, limit: 50 });
   const main = (listed.keys || []).find(k => k.name === 'sync:' + code);
   if (!main) return { updatedAt: null, recipes: 0, empty: true, version: 0 };
   const md = main.metadata || {};
   const version = Number(md.version) || 2;
-  return { updatedAt: md.updatedAt || null, recipes: md.recipes != null ? Number(md.recipes) : null, empty: false, version, bulky: version < 3, store: 'kv' };
+  return {
+    updatedAt: md.updatedAt || null,
+    recipes: md.recipes != null ? Number(md.recipes) : null,
+    empty: false,
+    version,
+    bulky: version < 3,
+    store: 'kv',
+  };
 }
 
 export async function onRequestGet({ request, params, env }) {
@@ -69,7 +84,11 @@ export async function onRequestPut({ request, params, env }) {
   const body = await request.text();
   if (!body || body.length > 8 * 1024 * 1024) return json({ error: '数据过大，请减少配图后重试' }, 413);
   let parsed;
-  try { parsed = JSON.parse(body) } catch { return json({ error: '数据格式错误' }, 400); }
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return json({ error: '数据格式错误' }, 400);
+  }
   const state = parsed?.state;
   if (!state || typeof state !== 'object' || !Array.isArray(state.recipes)) return json({ error: '缺少菜谱数据' }, 400);
   const updatedAt = new Date().toISOString();
@@ -79,13 +98,25 @@ export async function onRequestPut({ request, params, env }) {
   if (env.DB) {
     try {
       const saved = await d1Save(env.DB, code, state, imageIds, updatedAt);
-      const meta = { updatedAt, recipes: saved.recipes, dining: saved.dining, version: saved.version, images: saved.images, empty: false, store: 'd1' };
+      const meta = {
+        updatedAt,
+        recipes: saved.recipes,
+        dining: saved.dining,
+        version: saved.version,
+        images: saved.images,
+        empty: false,
+        store: 'd1',
+      };
       try {
-        await env.SYNC_KV.put('sync:' + code, compact, { metadata: { updatedAt, recipes: String(saved.recipes), version: String(saved.version) } });
+        await env.SYNC_KV.put('sync:' + code, compact, {
+          metadata: { updatedAt, recipes: String(saved.recipes), version: String(saved.version) },
+        });
         await env.SYNC_KV.put('sync:' + code + ':meta', JSON.stringify(meta));
       } catch {}
       let collected = 0;
-      try { collected = await gcR2(env.IMAGES, code, imageIds) } catch {}
+      try {
+        collected = await gcR2(env.IMAGES, code, imageIds);
+      } catch {}
       return json({ ok: true, ...meta, collected });
     } catch (e) {
       const msg = e && e.message ? e.message : '写入云端数据库失败';
@@ -97,7 +128,14 @@ export async function onRequestPut({ request, params, env }) {
   const recipes = state.recipes.length || 0;
   const version = Number(parsed?.version) || 2;
   const images = imageIds.length;
-  await env.SYNC_KV.put('sync:' + code, JSON.stringify({ version: version >= 4 ? version : 4, state, imageIds, pushedAt: parsed.pushedAt || updatedAt }), { metadata: { updatedAt, recipes: String(recipes), version: String(Math.max(version, 4)) } });
-  await env.SYNC_KV.put('sync:' + code + ':meta', JSON.stringify({ updatedAt, recipes, version: Math.max(version, 4), images, empty: false, store: 'kv' }));
+  await env.SYNC_KV.put(
+    'sync:' + code,
+    JSON.stringify({ version: version >= 4 ? version : 4, state, imageIds, pushedAt: parsed.pushedAt || updatedAt }),
+    { metadata: { updatedAt, recipes: String(recipes), version: String(Math.max(version, 4)) } },
+  );
+  await env.SYNC_KV.put(
+    'sync:' + code + ':meta',
+    JSON.stringify({ updatedAt, recipes, version: Math.max(version, 4), images, empty: false, store: 'kv' }),
+  );
   return json({ ok: true, updatedAt, recipes, version: Math.max(version, 4), images, store: 'kv' });
 }

@@ -4,10 +4,11 @@ export const CORS = {
   'Access-Control-Allow-Methods': 'GET,PUT,POST,HEAD,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
-export const json = (body, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
-});
+export const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
+  });
 export const validUsername = u => /^[a-z][a-z0-9]{2,23}$/.test(String(u || ''));
 export const validPassword = p => typeof p === 'string' && p.length >= 8 && p.length <= 128;
 export const validCode = c => /^[a-z0-9-]{8,48}$/.test(String(c || ''));
@@ -49,7 +50,9 @@ export async function checkPassword(password, salt, hash) {
 }
 
 export function clientIp(request) {
-  return request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '0';
+  return (
+    request.headers.get('CF-Connecting-IP') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '0'
+  );
 }
 
 export async function rateLimit(env, key, limit, ttl) {
@@ -65,11 +68,13 @@ export async function createSession(env, username) {
   const token = randomHex(32);
   const now = new Date();
   const exp = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
-  await env.DB.prepare(
-    'INSERT INTO sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)'
-  ).bind(token, username, now.toISOString(), exp.toISOString()).run();
+  await env.DB.prepare('INSERT INTO sessions (token, username, created_at, expires_at) VALUES (?, ?, ?, ?)')
+    .bind(token, username, now.toISOString(), exp.toISOString())
+    .run();
   try {
-    await env.DB.prepare("DELETE FROM sessions WHERE username = ? AND expires_at < ?").bind(username, now.toISOString()).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE username = ? AND expires_at < ?')
+      .bind(username, now.toISOString())
+      .run();
   } catch {}
   return { token, expiresAt: exp.toISOString() };
 }
@@ -95,11 +100,15 @@ export async function requireUser(request, env) {
   const row = await env.DB.prepare(
     `SELECT s.token, s.username, s.expires_at, u.code
      FROM sessions s JOIN users u ON u.username = s.username
-     WHERE s.token = ?`
-  ).bind(m[1]).first();
+     WHERE s.token = ?`,
+  )
+    .bind(m[1])
+    .first();
   if (!row) return { error: json({ error: '登录已失效，请重新登录' }, 401) };
   if (row.expires_at < new Date().toISOString()) {
-    try { await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(m[1]).run(); } catch {}
+    try {
+      await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(m[1]).run();
+    } catch {}
     return { error: json({ error: '登录已过期，请重新登录' }, 401) };
   }
   return { user: { username: row.username, code: row.code, token: row.token } };

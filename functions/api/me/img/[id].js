@@ -4,7 +4,9 @@ const validId = id => /^[a-z0-9-]{8,64}$/i.test(String(id || ''));
 const r2key = (code, id) => `${code}/${id}`;
 const kvkey = (code, id) => 'sync:' + code + ':img:' + id;
 
-export async function onRequestOptions() { return new Response(null, { status: 204, headers: CORS }); }
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 export async function onRequestHead({ request, params, env }) {
   const auth = await requireUser(request, env);
@@ -28,11 +30,25 @@ export async function onRequestGet({ request, params, env }) {
   const code = auth.user.code;
   if (env.IMAGES) {
     const obj = await env.IMAGES.get(r2key(code, id));
-    if (obj) return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable', ...CORS } });
+    if (obj)
+      return new Response(obj.body, {
+        headers: {
+          'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg',
+          'Cache-Control': 'private, max-age=31536000, immutable',
+          ...CORS,
+        },
+      });
   }
   if (env.SYNC_KV) {
     const { value, metadata } = await env.SYNC_KV.getWithMetadata(kvkey(code, id), { type: 'arrayBuffer' });
-    if (value) return new Response(value, { headers: { 'Content-Type': metadata?.type || 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable', ...CORS } });
+    if (value)
+      return new Response(value, {
+        headers: {
+          'Content-Type': metadata?.type || 'image/jpeg',
+          'Cache-Control': 'private, max-age=31536000, immutable',
+          ...CORS,
+        },
+      });
   }
   return json({ error: 'not found' }, 404);
 }

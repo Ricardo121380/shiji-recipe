@@ -1,103 +1,478 @@
 // 生活板块：外出就餐 / 就餐记录 / 热量记录 / 菜品推荐
-import{S,update,uid,today,addDays,monthOf,fmtDate,fmtTime,MEALS,toast,dayIntake,dayEntries,addManualEntry,removeManualEntry,setEntryCalories,monthDates,expiringItems,nameMatch,daysUntil,diningVenues,diningCatsOf,diningServeTags}from'./store.js';
-import{ico,esc}from'./ui.js';
-import{imgSrc,gcImages}from'./images.js';
-import{orderDialog}from'./kitchen.js';
-import{openSettings}from'./settings.js';
+import {
+  S,
+  update,
+  uid,
+  today,
+  addDays,
+  monthOf,
+  fmtDate,
+  fmtTime,
+  MEALS,
+  toast,
+  dayIntake,
+  dayEntries,
+  addManualEntry,
+  removeManualEntry,
+  setEntryCalories,
+  monthDates,
+  expiringItems,
+  nameMatch,
+  daysUntil,
+  diningVenues,
+  diningCatsOf,
+  diningServeTags,
+} from './store.js';
+import { ico, esc } from './ui.js';
+import { imgSrc, gcImages } from './images.js';
+import { orderDialog } from './kitchen.js';
+import { openSettings } from './settings.js';
 
-const V=()=>document.querySelector('#view');
+const V = () => document.querySelector('#view');
 
 // —— 外出就餐 ——
-export function renderDining(mount){let q='';renderDining.cat=renderDining.cat||'全部';renderDining.venue=renderDining.venue||'全部';
-if(renderDining.venue!=='全部'&&!diningVenues().includes(renderDining.venue))renderDining.venue='全部';
-const venues=['全部',...diningVenues()];
-const serveHtml=d=>diningServeTags(d).map(t=>`<em class="venue-tag">${esc(t)}</em>`).join(' ');
-const card=d=>`<div class="dining-card">${d.image?`<div class="dining-thumb"><img class="zoomable" src="${esc(imgSrc(d.image))}" alt="${esc(d.name)}" title="点击放大查看"></div>`:''}<div class="daily-top"><strong>${esc(d.name)}</strong>${d.calories?`<span class="badge fresh">${d.calories} 千卡</span>`:''}</div><div class="dining-tags"><em class="venue-tag">${esc(d.venue||'餐馆')}</em> ${serveHtml(d)}</div>${d.category||d.place?`<span class="food-meta">${esc([d.category,d.place].filter(Boolean).join(' · '))}</span>`:''}<div class="daily-actions"><button class="text-button" data-menu="${d.id}">${ico('plus',13)} 点菜</button><button class="icon-button" data-edit="${d.id}" aria-label="编辑">${ico('edit',15)}</button><button class="icon-button" data-del="${d.id}" aria-label="删除">${ico('trash',15)}</button></div></div>`;
-const listed=()=>S.dining.filter(d=>(renderDining.venue==='全部'||d.venue===renderDining.venue)&&(renderDining.cat==='全部'||d.category===renderDining.cat)&&(d.name+' '+(d.place||'')+' '+d.category+' '+(d.venue||'')+' '+diningServeTags(d).join(' ')).toLowerCase().includes(q));
-const bindCards=()=>{mount.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>orderDialog(S.dining.find(x=>x.id===b.dataset.menu)));mount.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>diningDialog(S.dining.find(x=>x.id===b.dataset.edit)));mount.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(window.confirm('确定删除这条外出记录？')){update(()=>S.dining=S.dining.filter(x=>x.id!==b.dataset.del));gcImages(S);paintGrid()}})};
-const paintGrid=()=>{const list=listed();const grid=mount.querySelector('.dining-grid');const count=mount.querySelector('.collection-title span');if(count)count.textContent=`${list.length} 条`;if(!grid){draw();return}grid.innerHTML=list.map(card).join('')||`<div class="empty" style="grid-column:1/-1"><div>${ico('utensils')}</div><h3>还没有外出记录</h3><p>把常点的外卖、餐厅记下来，下次一键点进菜单。</p></div>`;bindCards()};
-const draw=()=>{const cats=diningCatsOf(renderDining.venue);if(renderDining.cat!=='全部'&&!cats.includes(renderDining.cat))renderDining.cat='全部';
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">EATING OUT</div><h1>外出吃饭，也记下来。</h1><p>先分餐馆、餐厅等大类，再记菜名和店。每道菜可勾选外卖、堂食，也可以两个都选。备注只留在编辑里。</p></div><div class="detail-tools"><button class="secondary" id="random-dining">${ico('sparkle')} 随机来一道</button><button class="primary" id="add-dining">${ico('plus')} 新增外出餐</button></div></section><div class="dining-toolbar"><div class="type-tabs" role="tablist">${venues.map(v=>`<button data-dvenue="${esc(v)}" class="${renderDining.venue===v?'chosen':''}">${esc(v)}</button>`).join('')}</div><div class="collection-bar"><div class="collection-title"><h2>我的外出清单</h2><span>${listed().length} 条</span></div><label class="search">${ico('search',15)}<input id="d-search" placeholder="搜索店名、名称、分类…" value="${esc(q)}"><kbd>⌕</kbd></label></div></div><div class="filters">${['全部',...cats].map(c=>`<button data-dcat="${esc(c)}" class="filter ${renderDining.cat===c?'chosen':''}">${esc(c)}</button>`).join('')}<button class="filter manage" id="dining-cats">${ico('settings',13)} 编辑分类</button></div><div class="dining-grid"></div>`;
-(mount.querySelector('#random-dining')??document.createElement('button')).onclick=()=>diningRandomDialog();
-(mount.querySelector('#add-dining')??document.createElement('button')).onclick=()=>diningDialog(null);
-mount.querySelectorAll('[data-dvenue]').forEach(b=>b.onclick=()=>{renderDining.venue=b.dataset.dvenue;renderDining.cat='全部';draw()});
-mount.querySelectorAll('[data-dcat]').forEach(b=>b.onclick=()=>{renderDining.cat=b.dataset.dcat;draw()});
-(document.querySelector('#dining-cats')??document.createElement('button')).onclick=()=>openSettings();
-(mount.querySelector('#d-search')??document.createElement('button')).oninput=e=>{q=e.target.value.toLowerCase();paintGrid()};
-paintGrid()};draw()}
-
-function diningMinutes(d){return(Number(d.hours)||0)*60+(Number(d.minutes)||0)}
-function pickDining(venue,cat,pace,cal){
-  let pool=S.dining.filter(d=>(venue==='全部'||d.venue===venue)&&(cat==='全部'||d.category===cat));
-  if(pace==='fast')pool=pool.filter(d=>{const m=diningMinutes(d);return m>0&&m<=30});
-  else if(pace==='hour')pool=pool.filter(d=>{const m=diningMinutes(d);return m>0&&m<=60});
-  if(cal==='remain'){const goal=Number(S.nutrition?.goal)||0;if(goal){const remain=Math.max(0,goal-dayIntake(today()));pool=pool.filter(d=>d.calories==null||d.calories<=remain)}}
-  if(!pool.length)return null;
-  return pool[Math.floor(Math.random()*pool.length)];
+export function renderDining(mount) {
+  let q = '';
+  renderDining.cat = renderDining.cat || '全部';
+  renderDining.venue = renderDining.venue || '全部';
+  if (renderDining.venue !== '全部' && !diningVenues().includes(renderDining.venue)) renderDining.venue = '全部';
+  const venues = ['全部', ...diningVenues()];
+  const serveHtml = d =>
+    diningServeTags(d)
+      .map(t => `<em class="venue-tag">${esc(t)}</em>`)
+      .join(' ');
+  const card = d =>
+    `<div class="dining-card">${d.image ? `<div class="dining-thumb"><img class="zoomable" src="${esc(imgSrc(d.image))}" alt="${esc(d.name)}" title="点击放大查看"></div>` : ''}<div class="daily-top"><strong>${esc(d.name)}</strong>${d.calories ? `<span class="badge fresh">${d.calories} 千卡</span>` : ''}</div><div class="dining-tags"><em class="venue-tag">${esc(d.venue || '餐馆')}</em> ${serveHtml(d)}</div>${d.category || d.place ? `<span class="food-meta">${esc([d.category, d.place].filter(Boolean).join(' · '))}</span>` : ''}<div class="daily-actions"><button class="text-button" data-menu="${d.id}">${ico('plus', 13)} 点菜</button><button class="icon-button" data-edit="${d.id}" aria-label="编辑">${ico('edit', 15)}</button><button class="icon-button" data-del="${d.id}" aria-label="删除">${ico('trash', 15)}</button></div></div>`;
+  const listed = () =>
+    S.dining.filter(
+      d =>
+        (renderDining.venue === '全部' || d.venue === renderDining.venue) &&
+        (renderDining.cat === '全部' || d.category === renderDining.cat) &&
+        (d.name + ' ' + (d.place || '') + ' ' + d.category + ' ' + (d.venue || '') + ' ' + diningServeTags(d).join(' '))
+          .toLowerCase()
+          .includes(q),
+    );
+  const bindCards = () => {
+    mount
+      .querySelectorAll('[data-menu]')
+      .forEach(b => (b.onclick = () => orderDialog(S.dining.find(x => x.id === b.dataset.menu))));
+    mount
+      .querySelectorAll('[data-edit]')
+      .forEach(b => (b.onclick = () => diningDialog(S.dining.find(x => x.id === b.dataset.edit))));
+    mount.querySelectorAll('[data-del]').forEach(
+      b =>
+        (b.onclick = () => {
+          if (window.confirm('确定删除这条外出记录？')) {
+            update(() => (S.dining = S.dining.filter(x => x.id !== b.dataset.del)));
+            gcImages(S);
+            paintGrid();
+          }
+        }),
+    );
+  };
+  const paintGrid = () => {
+    const list = listed();
+    const grid = mount.querySelector('.dining-grid');
+    const count = mount.querySelector('.collection-title span');
+    if (count) count.textContent = `${list.length} 条`;
+    if (!grid) {
+      draw();
+      return;
+    }
+    grid.innerHTML =
+      list.map(card).join('') ||
+      `<div class="empty" style="grid-column:1/-1"><div>${ico('utensils')}</div><h3>还没有外出记录</h3><p>把常点的外卖、餐厅记下来，下次一键点进菜单。</p></div>`;
+    bindCards();
+  };
+  const draw = () => {
+    const cats = diningCatsOf(renderDining.venue);
+    if (renderDining.cat !== '全部' && !cats.includes(renderDining.cat)) renderDining.cat = '全部';
+    mount.innerHTML = `<section class="intro"><div><div class="eyebrow">EATING OUT</div><h1>外出吃饭，也记下来。</h1><p>先分餐馆、餐厅等大类，再记菜名和店。每道菜可勾选外卖、堂食，也可以两个都选。备注只留在编辑里。</p></div><div class="detail-tools"><button class="secondary" id="random-dining">${ico('sparkle')} 随机来一道</button><button class="primary" id="add-dining">${ico('plus')} 新增外出餐</button></div></section><div class="dining-toolbar"><div class="type-tabs" role="tablist">${venues.map(v => `<button data-dvenue="${esc(v)}" class="${renderDining.venue === v ? 'chosen' : ''}">${esc(v)}</button>`).join('')}</div><div class="collection-bar"><div class="collection-title"><h2>我的外出清单</h2><span>${listed().length} 条</span></div><label class="search">${ico('search', 15)}<input id="d-search" placeholder="搜索店名、名称、分类…" value="${esc(q)}"><kbd>⌕</kbd></label></div></div><div class="filters">${['全部', ...cats].map(c => `<button data-dcat="${esc(c)}" class="filter ${renderDining.cat === c ? 'chosen' : ''}">${esc(c)}</button>`).join('')}<button class="filter manage" id="dining-cats">${ico('settings', 13)} 编辑分类</button></div><div class="dining-grid"></div>`;
+    (mount.querySelector('#random-dining') ?? document.createElement('button')).onclick = () => diningRandomDialog();
+    (mount.querySelector('#add-dining') ?? document.createElement('button')).onclick = () => diningDialog(null);
+    mount.querySelectorAll('[data-dvenue]').forEach(
+      b =>
+        (b.onclick = () => {
+          renderDining.venue = b.dataset.dvenue;
+          renderDining.cat = '全部';
+          draw();
+        }),
+    );
+    mount.querySelectorAll('[data-dcat]').forEach(
+      b =>
+        (b.onclick = () => {
+          renderDining.cat = b.dataset.dcat;
+          draw();
+        }),
+    );
+    (document.querySelector('#dining-cats') ?? document.createElement('button')).onclick = () => openSettings();
+    (mount.querySelector('#d-search') ?? document.createElement('button')).oninput = e => {
+      q = e.target.value.toLowerCase();
+      paintGrid();
+    };
+    paintGrid();
+  };
+  draw();
 }
-function diningRandomDialog(){const dlg=document.querySelector('#dialog-root');let rvenue='全部',rcat='全部',pace='any',cal='any',pick=null,miss='';
-const venues=['全部',...diningVenues()];
-const resultHtml=d=>{if(!d)return`<p class="muted" style="padding:6px 0">${esc(miss||'选好条件，点下面按钮开始随机。')}</p>`;
-const serve=diningServeTags(d).join(' · ');
-const line1=[d.venue,serve].filter(Boolean).join(' · ');
-const line2=[d.category,d.place].filter(Boolean).join(' · ');
-return`<div class="random-result"><div class="random-head">${d.image?`<img src="${esc(imgSrc(d.image))}" alt="">`:`<span class="pick-thumb">${ico('utensils',22)}</span>`}<div><strong>${esc(d.name)}</strong>${line1?`<small>${esc(line1)}</small>`:''}${line2||d.calories?`<small>${esc(line2)}${d.calories?`${line2?' · ':''}${d.calories} 千卡`:''}</small>`:''}</div></div><div class="daily-actions"><button class="text-button" id="r-order">${ico('plus',13)} 就点这道</button></div></div>`};
-const draw=()=>{const cats=['全部',...diningCatsOf(rvenue)];if(rcat!=='全部'&&!cats.includes(rcat))rcat='全部';const goal=Number(S.nutrition?.goal)||0;const remain=Math.max(0,goal-dayIntake(today()));
-dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">FEELING HUNGRY</span><h2>随机来一道</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">大分类</span><div class="chips">${venues.map(v=>`<button type="button" class="filter ${rvenue===v?'chosen':''}" data-rv="${esc(v)}">${esc(v)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">小分类</span><div class="chips">${cats.map(c=>`<button type="button" class="filter ${rcat===c?'chosen':''}" data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">热量</span><div class="chips">${[['any','不限'],['remain','今天额度内']].map(([v,l])=>`<button type="button" class="filter ${cal===v?'chosen':''}" data-cal="${v}">${l}</button>`).join('')}</div>${cal==='remain'?`<p class="muted" style="margin:8px 0 0">${goal?`今日还剩 ${remain} 千卡（目标 ${goal}）`:'还没设定每日热量目标，此项暂不筛选。'}</p>`:''}</div><div id="random-result">${resultHtml(pick)}</div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>关闭</button><button class="primary" id="roll">${ico('sparkle')} 随机来一道</button></div></div></div>`;
-if(!dlg.open)dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-dlg.querySelectorAll('[data-rv]').forEach(b=>b.onclick=()=>{rvenue=b.dataset.rv;rcat='全部';pick=null;miss='';draw()});
-dlg.querySelectorAll('[data-rc]').forEach(b=>b.onclick=()=>{rcat=b.dataset.rc;pick=null;miss='';draw()});
-dlg.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>{cal=b.dataset.cal;pick=null;miss='';draw()});
-(dlg.querySelector('#roll')??document.createElement('button')).onclick=()=>{if(!S.dining.length){pick=null;miss='还没有外出记录，先去新增一两家常点的。';draw();return}pick=pickDining(rvenue,rcat,pace,cal);miss=pick?'':'没有符合条件的外出餐，换个筛选再试。';draw()};
-dlg.querySelector('#r-order')?.addEventListener('click',()=>{if(!pick)return;dlg.close();orderDialog(pick)})};
-draw()}
 
-function diningDialog(d){const dlg=document.querySelector('#dialog-root');const isNew=!d;
-const venues=diningVenues();
-const fillCats=(venue,selected)=>{const sel=dlg.querySelector('[name=category]');if(!sel)return;const cats=diningCatsOf(venue);const cur=cats.includes(selected)?selected:cats[0];sel.innerHTML=cats.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('')};
-dlg.innerHTML=`<form class="editor" id="dining-form"><div class="modal-heading"><div><span class="eyebrow">EATING OUT</span><h2>${isNew?'新增外出餐':'编辑外出餐'}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><label class="field">菜品名称 <span class="required">*</span><input name="name" required maxlength="60" placeholder="例如：番茄牛腩面" value="${esc(d?.name||'')}"></label><div class="field-row two"><label class="field">大分类<select name="venue">${venues.map(v=>`<option ${(d?.venue||venues[0]||'餐馆')===v?'selected':''}>${esc(v)}</option>`).join('')}</select></label><label class="field">小分类<select name="category"></select></label></div><div class="field-row two"><label class="prep-line"><input type="checkbox" name="takeout" ${d?.takeout?'checked':''}> 外卖</label><label class="prep-line"><input type="checkbox" name="dineIn" ${d?.dineIn?'checked':''}> 堂食</label></div><div class="field-row two"><label class="field">店名 / 品牌<input name="place" maxlength="40" placeholder="例如：楼下面馆" value="${esc(d?.place||'')}"></label><label class="field">热量（千卡）<input name="calories" type="number" min="0" max="9999" value="${d?.calories??''}"></label></div><label class="field">备注 <span class="optional">只在编辑里可见</span><input name="description" maxlength="120" placeholder="口味、地址、常点搭配…" value="${esc(d?.description||'')}"></label></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;
-if(!dlg.open)dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-const syncVenue=()=>{const venue=dlg.querySelector('[name=venue]')?.value||venues[0]||'餐馆';fillCats(venue,venue===(d?.venue)?d?.category:'')};
-dlg.querySelector('[name=venue]')?.addEventListener('change',syncVenue);syncVenue();
-(dlg.querySelector('#dining-form')??document.createElement('button')).onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const venue=f.get('venue')||venues[0]||'餐馆';const next={id:isNew?uid():d.id,name:f.get('name').trim(),place:f.get('place').trim(),venue,takeout:f.get('takeout')==='on',dineIn:f.get('dineIn')==='on',category:f.get('category'),calories:f.get('calories')?Number(f.get('calories')):null,hours:d?.hours||0,minutes:d?.minutes||0,servings:d?.servings||1,description:f.get('description').trim(),image:d?.image||''};if(!next.name){toast('请填写名称');return}if(!update(()=>{if(isNew)S.dining.unshift(next);else S.dining=S.dining.map(x=>x.id===next.id?next:x)}))return;gcImages(S);dlg.close();toast('已保存')}}
+function diningMinutes(d) {
+  return (Number(d.hours) || 0) * 60 + (Number(d.minutes) || 0);
+}
+function pickDining(venue, cat, pace, cal) {
+  let pool = S.dining.filter(d => (venue === '全部' || d.venue === venue) && (cat === '全部' || d.category === cat));
+  if (pace === 'fast')
+    pool = pool.filter(d => {
+      const m = diningMinutes(d);
+      return m > 0 && m <= 30;
+    });
+  else if (pace === 'hour')
+    pool = pool.filter(d => {
+      const m = diningMinutes(d);
+      return m > 0 && m <= 60;
+    });
+  if (cal === 'remain') {
+    const goal = Number(S.nutrition?.goal) || 0;
+    if (goal) {
+      const remain = Math.max(0, goal - dayIntake(today()));
+      pool = pool.filter(d => d.calories == null || d.calories <= remain);
+    }
+  }
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function diningRandomDialog() {
+  const dlg = document.querySelector('#dialog-root');
+  let rvenue = '全部',
+    rcat = '全部',
+    pace = 'any',
+    cal = 'any',
+    pick = null,
+    miss = '';
+  const venues = ['全部', ...diningVenues()];
+  const resultHtml = d => {
+    if (!d) return `<p class="muted" style="padding:6px 0">${esc(miss || '选好条件，点下面按钮开始随机。')}</p>`;
+    const serve = diningServeTags(d).join(' · ');
+    const line1 = [d.venue, serve].filter(Boolean).join(' · ');
+    const line2 = [d.category, d.place].filter(Boolean).join(' · ');
+    return `<div class="random-result"><div class="random-head">${d.image ? `<img src="${esc(imgSrc(d.image))}" alt="">` : `<span class="pick-thumb">${ico('utensils', 22)}</span>`}<div><strong>${esc(d.name)}</strong>${line1 ? `<small>${esc(line1)}</small>` : ''}${line2 || d.calories ? `<small>${esc(line2)}${d.calories ? `${line2 ? ' · ' : ''}${d.calories} 千卡` : ''}</small>` : ''}</div></div><div class="daily-actions"><button class="text-button" id="r-order">${ico('plus', 13)} 就点这道</button></div></div>`;
+  };
+  const draw = () => {
+    const cats = ['全部', ...diningCatsOf(rvenue)];
+    if (rcat !== '全部' && !cats.includes(rcat)) rcat = '全部';
+    const goal = Number(S.nutrition?.goal) || 0;
+    const remain = Math.max(0, goal - dayIntake(today()));
+    dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">FEELING HUNGRY</span><h2>随机来一道</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">大分类</span><div class="chips">${venues.map(v => `<button type="button" class="filter ${rvenue === v ? 'chosen' : ''}" data-rv="${esc(v)}">${esc(v)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">小分类</span><div class="chips">${cats.map(c => `<button type="button" class="filter ${rcat === c ? 'chosen' : ''}" data-rc="${esc(c)}">${esc(c)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">热量</span><div class="chips">${[
+      ['any', '不限'],
+      ['remain', '今天额度内'],
+    ]
+      .map(
+        ([v, l]) => `<button type="button" class="filter ${cal === v ? 'chosen' : ''}" data-cal="${v}">${l}</button>`,
+      )
+      .join(
+        '',
+      )}</div>${cal === 'remain' ? `<p class="muted" style="margin:8px 0 0">${goal ? `今日还剩 ${remain} 千卡（目标 ${goal}）` : '还没设定每日热量目标，此项暂不筛选。'}</p>` : ''}</div><div id="random-result">${resultHtml(pick)}</div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>关闭</button><button class="primary" id="roll">${ico('sparkle')} 随机来一道</button></div></div></div>`;
+    if (!dlg.open) dlg.showModal();
+    dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+    dlg.querySelectorAll('[data-rv]').forEach(
+      b =>
+        (b.onclick = () => {
+          rvenue = b.dataset.rv;
+          rcat = '全部';
+          pick = null;
+          miss = '';
+          draw();
+        }),
+    );
+    dlg.querySelectorAll('[data-rc]').forEach(
+      b =>
+        (b.onclick = () => {
+          rcat = b.dataset.rc;
+          pick = null;
+          miss = '';
+          draw();
+        }),
+    );
+    dlg.querySelectorAll('[data-cal]').forEach(
+      b =>
+        (b.onclick = () => {
+          cal = b.dataset.cal;
+          pick = null;
+          miss = '';
+          draw();
+        }),
+    );
+    (dlg.querySelector('#roll') ?? document.createElement('button')).onclick = () => {
+      if (!S.dining.length) {
+        pick = null;
+        miss = '还没有外出记录，先去新增一两家常点的。';
+        draw();
+        return;
+      }
+      pick = pickDining(rvenue, rcat, pace, cal);
+      miss = pick ? '' : '没有符合条件的外出餐，换个筛选再试。';
+      draw();
+    };
+    dlg.querySelector('#r-order')?.addEventListener('click', () => {
+      if (!pick) return;
+      dlg.close();
+      orderDialog(pick);
+    });
+  };
+  draw();
+}
+
+function diningDialog(d) {
+  const dlg = document.querySelector('#dialog-root');
+  const isNew = !d;
+  const venues = diningVenues();
+  const fillCats = (venue, selected) => {
+    const sel = dlg.querySelector('[name=category]');
+    if (!sel) return;
+    const cats = diningCatsOf(venue);
+    const cur = cats.includes(selected) ? selected : cats[0];
+    sel.innerHTML = cats.map(c => `<option ${c === cur ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  };
+  dlg.innerHTML = `<form class="editor" id="dining-form"><div class="modal-heading"><div><span class="eyebrow">EATING OUT</span><h2>${isNew ? '新增外出餐' : '编辑外出餐'}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><label class="field">菜品名称 <span class="required">*</span><input name="name" required maxlength="60" placeholder="例如：番茄牛腩面" value="${esc(d?.name || '')}"></label><div class="field-row two"><label class="field">大分类<select name="venue">${venues.map(v => `<option ${(d?.venue || venues[0] || '餐馆') === v ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label><label class="field">小分类<select name="category"></select></label></div><div class="field-row two"><label class="prep-line"><input type="checkbox" name="takeout" ${d?.takeout ? 'checked' : ''}> 外卖</label><label class="prep-line"><input type="checkbox" name="dineIn" ${d?.dineIn ? 'checked' : ''}> 堂食</label></div><div class="field-row two"><label class="field">店名 / 品牌<input name="place" maxlength="40" placeholder="例如：楼下面馆" value="${esc(d?.place || '')}"></label><label class="field">热量（千卡）<input name="calories" type="number" min="0" max="9999" value="${d?.calories ?? ''}"></label></div><label class="field">备注 <span class="optional">只在编辑里可见</span><input name="description" maxlength="120" placeholder="口味、地址、常点搭配…" value="${esc(d?.description || '')}"></label></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;
+  if (!dlg.open) dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  const syncVenue = () => {
+    const venue = dlg.querySelector('[name=venue]')?.value || venues[0] || '餐馆';
+    fillCats(venue, venue === d?.venue ? d?.category : '');
+  };
+  dlg.querySelector('[name=venue]')?.addEventListener('change', syncVenue);
+  syncVenue();
+  (dlg.querySelector('#dining-form') ?? document.createElement('button')).onsubmit = e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const venue = f.get('venue') || venues[0] || '餐馆';
+    const next = {
+      id: isNew ? uid() : d.id,
+      name: f.get('name').trim(),
+      place: f.get('place').trim(),
+      venue,
+      takeout: f.get('takeout') === 'on',
+      dineIn: f.get('dineIn') === 'on',
+      category: f.get('category'),
+      calories: f.get('calories') ? Number(f.get('calories')) : null,
+      hours: d?.hours || 0,
+      minutes: d?.minutes || 0,
+      servings: d?.servings || 1,
+      description: f.get('description').trim(),
+      image: d?.image || '',
+    };
+    if (!next.name) {
+      toast('请填写名称');
+      return;
+    }
+    if (
+      !update(() => {
+        if (isNew) S.dining.unshift(next);
+        else S.dining = S.dining.map(x => (x.id === next.id ? next : x));
+      })
+    )
+      return;
+    gcImages(S);
+    dlg.close();
+    toast('已保存');
+  };
+}
 
 // —— 就餐记录 ——
-const logLine=e=>{const spec=e.specs&&Object.keys(e.specs).length?' · '+Object.entries(e.specs).map(([k,v])=>v).join('/'):'';return`${e.name}${e.qty>1?` ×${e.qty}`:''}${spec}`};
-export function renderJournal(mount){const cur=renderJournal.month||monthOf(today());
-const days=monthDates(cur);
-const first=cur+'-01';const label=`${Number(cur.slice(0,4))} 年 ${Number(cur.slice(5,7))} 月`;
-const prevM=monthOf(addDays(first,-1)),nextM=monthOf(addDays(first,32));const isCur=cur===monthOf(today());
-const text=buildMonthText(cur,days);
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">WHAT WE ATE</div><h1>${label}，吃过什么？</h1><p>与热量记录同一份数据：本周菜单勾选「已吃」和手动记的热量都会出现在这里。</p></div><div class="week-nav"><button class="secondary" id="j-prev">‹ ${Number(prevM.slice(5,7))} 月</button>${isCur?'':'<button class="secondary" id="j-next">下一月 ›</button>'}</div></section><div class="journal-send">${ico('mail',18)}<div><strong>${label}清单已整理好</strong><span>包含日期、菜品和热量，可复制后发给手机，或通过邮件应用发送。</span></div><button class="text-button" id="copy-list">${ico('copy',15)} 复制</button><button class="text-button" id="mail-list">${ico('mail',15)} 邮件发送</button></div><div class="journal-list">${days.map(d=>`<div class="journal-day"><header><strong>${fmtDate(d)} 周${'日一二三四五六'[new Date(d+'T00:00:00').getDay()]}</strong><span>共 ${dayIntake(d)} 千卡</span></header>${dayEntries(d).map(e=>`<span class="journal-item"><em>${MEALS.find(m=>m[0]===e.meal)?.[1]||e.meal}</em>${esc(logLine(e))}<small>${e.calories||0} 千卡</small></span>`).join('')}</div>`).join('')||`<div class="empty"><div>${ico('calendar')}</div><h3>${label}还没有记录</h3><p>在本周菜单勾选「已吃」，或在热量记录里手动添加，都会同步到这里。</p></div>`}</div>`;
-(mount.querySelector('#j-prev')??document.createElement('button')).onclick=()=>{renderJournal.month=prevM;renderJournal(V())};mount.querySelector('#j-next')?.addEventListener('click',()=>{renderJournal.month=nextM;renderJournal(V())});
-(mount.querySelector('#copy-list')??document.createElement('button')).onclick=async()=>{try{await navigator.clipboard.writeText(text);toast('清单已复制，可粘贴到微信 / 备忘录发到手机')}catch{toast('复制失败，请手动选择文本')}};
-(mount.querySelector('#mail-list')??document.createElement('button')).onclick=()=>{location.href=`mailto:?subject=${encodeURIComponent('饭Fun · '+label+'吃过清单')}&body=${encodeURIComponent(text)}`};}
+const logLine = e => {
+  const spec =
+    e.specs && Object.keys(e.specs).length
+      ? ' · ' +
+        Object.entries(e.specs)
+          .map(([k, v]) => v)
+          .join('/')
+      : '';
+  return `${e.name}${e.qty > 1 ? ` ×${e.qty}` : ''}${spec}`;
+};
+export function renderJournal(mount) {
+  const cur = renderJournal.month || monthOf(today());
+  const days = monthDates(cur);
+  const first = cur + '-01';
+  const label = `${Number(cur.slice(0, 4))} 年 ${Number(cur.slice(5, 7))} 月`;
+  const prevM = monthOf(addDays(first, -1)),
+    nextM = monthOf(addDays(first, 32));
+  const isCur = cur === monthOf(today());
+  const text = buildMonthText(cur, days);
+  mount.innerHTML = `<section class="intro"><div><div class="eyebrow">WHAT WE ATE</div><h1>${label}，吃过什么？</h1><p>与热量记录同一份数据：本周菜单勾选「已吃」和手动记的热量都会出现在这里。</p></div><div class="week-nav"><button class="secondary" id="j-prev">‹ ${Number(prevM.slice(5, 7))} 月</button>${isCur ? '' : '<button class="secondary" id="j-next">下一月 ›</button>'}</div></section><div class="journal-send">${ico('mail', 18)}<div><strong>${label}清单已整理好</strong><span>包含日期、菜品和热量，可复制后发给手机，或通过邮件应用发送。</span></div><button class="text-button" id="copy-list">${ico('copy', 15)} 复制</button><button class="text-button" id="mail-list">${ico('mail', 15)} 邮件发送</button></div><div class="journal-list">${
+    days
+      .map(
+        d =>
+          `<div class="journal-day"><header><strong>${fmtDate(d)} 周${'日一二三四五六'[new Date(d + 'T00:00:00').getDay()]}</strong><span>共 ${dayIntake(d)} 千卡</span></header>${dayEntries(
+            d,
+          )
+            .map(
+              e =>
+                `<span class="journal-item"><em>${MEALS.find(m => m[0] === e.meal)?.[1] || e.meal}</em>${esc(logLine(e))}<small>${e.calories || 0} 千卡</small></span>`,
+            )
+            .join('')}</div>`,
+      )
+      .join('') ||
+    `<div class="empty"><div>${ico('calendar')}</div><h3>${label}还没有记录</h3><p>在本周菜单勾选「已吃」，或在热量记录里手动添加，都会同步到这里。</p></div>`
+  }</div>`;
+  (mount.querySelector('#j-prev') ?? document.createElement('button')).onclick = () => {
+    renderJournal.month = prevM;
+    renderJournal(V());
+  };
+  mount.querySelector('#j-next')?.addEventListener('click', () => {
+    renderJournal.month = nextM;
+    renderJournal(V());
+  });
+  (mount.querySelector('#copy-list') ?? document.createElement('button')).onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('清单已复制，可粘贴到微信 / 备忘录发到手机');
+    } catch {
+      toast('复制失败，请手动选择文本');
+    }
+  };
+  (mount.querySelector('#mail-list') ?? document.createElement('button')).onclick = () => {
+    location.href = `mailto:?subject=${encodeURIComponent('饭Fun · ' + label + '吃过清单')}&body=${encodeURIComponent(text)}`;
+  };
+}
 
-function buildMonthText(cur,days){let out=`【饭Fun】${Number(cur.slice(0,4))}年${Number(cur.slice(5,7))}月吃过清单\n`;for(const d of days){out+=`\n${fmtDate(d)}：\n`;for(const e of dayEntries(d))out+=`· ${MEALS.find(m=>m[0]===e.meal)?.[1]||''} ${logLine(e)}${e.calories?` ${e.calories}千卡`:''}\n`}if(!days.length)out+='（这个月还没有记录）';return out}
+function buildMonthText(cur, days) {
+  let out = `【饭Fun】${Number(cur.slice(0, 4))}年${Number(cur.slice(5, 7))}月吃过清单\n`;
+  for (const d of days) {
+    out += `\n${fmtDate(d)}：\n`;
+    for (const e of dayEntries(d))
+      out += `· ${MEALS.find(m => m[0] === e.meal)?.[1] || ''} ${logLine(e)}${e.calories ? ` ${e.calories}千卡` : ''}\n`;
+  }
+  if (!days.length) out += '（这个月还没有记录）';
+  return out;
+}
 
 // —— 热量记录 ——
-export function renderHealth(mount){const goal=S.nutrition.goal;const t=today();const eaten=dayIntake(t);const remain=Math.max(0,goal-eaten);const pct=Math.min(100,goal?Math.round(eaten/goal*100):0);
-const days=monthDates(monthOf(t)).slice().reverse();
-const todayLines=dayEntries(t);
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">DAILY ENERGY</div><h1>今天的热量，心里有数。</h1><p>本周菜单勾选「已吃」会记入；每条热量都可以改，就餐记录会跟着同步。</p></div></section><div class="health-goal"><label class="field">每日目标（千卡）<input id="goal" type="number" min="0" max="20000" value="${goal}"></label></div><div class="health-add"><select id="mh-meal">${MEALS.map(([mv,ml])=>`<option value="${mv}">${ml}</option>`).join('')}</select><input id="mh-name" placeholder="名称，如：下午茶蛋糕" maxlength="30"><input id="mh-cal" type="number" min="0" placeholder="千卡"><button class="icon-button" id="mh-add" aria-label="添加手动热量">${ico('plus',15)}</button></div><div class="stat-cards"><div class="stat"><span class="stat-label">今日已摄入</span><strong>${eaten}<small> 千卡</small></strong><div class="stat-bar"><i style="width:${pct}%"></i></div></div><div class="stat"><span class="stat-label">目标剩余</span><strong>${remain}<small> 千卡</small></strong><span class="stat-sub">${goal?`${pct}% / 目标 ${goal} 千卡`:'先设定每日热量目标'}</span></div><div class="stat"><span class="stat-label">今日记录</span><strong>${todayLines.length}<small> 餐</small></strong><span class="stat-sub">${todayLines.map(logLine).slice(0,2).join('、')||'还没吃'}</span></div></div><div class="collection-bar"><div class="collection-title"><h2>每日摄入</h2><span>本月 · 目标 ${goal} 千卡</span></div></div><div class="journal-list">${days.map(d=>`<div class="journal-day"><header><strong>${fmtDate(d)} ${d===t?'· 今天':''}</strong><span>${dayIntake(d)} / ${goal} 千卡 ${goal?`(${Math.min(999,Math.round(dayIntake(d)/goal*100))}%)`:''}</span></header><div class="day-bar"><i style="width:${goal?Math.min(100,dayIntake(d)/goal*100):0}%"></i></div>${dayEntries(d).map(e=>`<div class="journal-item health-line"><em>${MEALS.find(m=>m[0]===e.meal)?.[1]||''}</em><span class="health-name">${esc(logLine(e))}</span><label class="cal-edit-wrap"><input class="cal-edit" data-cal="${e.id?`m|${d}|${e.id}`:`w|${d}|${e.meal}|${e.idx}`}" type="number" min="0" max="99999" value="${e.calories||0}"><small>千卡</small></label>${e.id?`<button class="icon-button" data-mdel="${d}|${e.id}" aria-label="删除手动记录">${ico('close',12)}</button>`:''}</div>`).join('')}</div>`).join('')||`<div class="empty"><div>${ico('flame')}</div><h3>本月还没有摄入记录</h3><p>在本周菜单勾选「已吃」，或在上方手动添加。</p></div>`}</div>`;
-(mount.querySelector('#mh-add')??document.createElement('button')).onclick=()=>{const name=(mount.querySelector('#mh-name')?.value||'').trim()||'手动记录';const raw=mount.querySelector('#mh-cal')?.value;if(raw===''||raw==null||Number.isNaN(Number(raw))){toast('请填写热量（千卡）');return}const cal=Number(raw);const meal=mount.querySelector('#mh-meal')?.value||'extra';update(()=>addManualEntry(today(),meal,name,cal));toast(`已记录 ${name} ${cal} 千卡`);renderHealth(V())};
-mount.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=()=>{const[d,id]=b.dataset.mdel.split('|');update(()=>removeManualEntry(d,id));renderHealth(V())});
-mount.querySelectorAll('.cal-edit').forEach(inp=>{inp.onchange=()=>{const p=inp.dataset.cal.split('|');const cal=inp.value;update(()=>{if(p[0]==='m')setEntryCalories({id:p[2],date:p[1]},cal);else setEntryCalories({date:p[1],meal:p[2],idx:Number(p[3])},cal)});renderHealth(V())}});
-(mount.querySelector('#goal')??document.createElement('button')).onchange=e=>{update(()=>S.nutrition.goal=Math.max(0,Number(e.target.value)||0));toast('目标已更新');renderHealth(V())}}
+export function renderHealth(mount) {
+  const goal = S.nutrition.goal;
+  const t = today();
+  const eaten = dayIntake(t);
+  const remain = Math.max(0, goal - eaten);
+  const pct = Math.min(100, goal ? Math.round((eaten / goal) * 100) : 0);
+  const days = monthDates(monthOf(t)).slice().reverse();
+  const todayLines = dayEntries(t);
+  mount.innerHTML = `<section class="intro"><div><div class="eyebrow">DAILY ENERGY</div><h1>今天的热量，心里有数。</h1><p>本周菜单勾选「已吃」会记入；每条热量都可以改，就餐记录会跟着同步。</p></div></section><div class="health-goal"><label class="field">每日目标（千卡）<input id="goal" type="number" min="0" max="20000" value="${goal}"></label></div><div class="health-add"><select id="mh-meal">${MEALS.map(([mv, ml]) => `<option value="${mv}">${ml}</option>`).join('')}</select><input id="mh-name" placeholder="名称，如：下午茶蛋糕" maxlength="30"><input id="mh-cal" type="number" min="0" placeholder="千卡"><button class="icon-button" id="mh-add" aria-label="添加手动热量">${ico('plus', 15)}</button></div><div class="stat-cards"><div class="stat"><span class="stat-label">今日已摄入</span><strong>${eaten}<small> 千卡</small></strong><div class="stat-bar"><i style="width:${pct}%"></i></div></div><div class="stat"><span class="stat-label">目标剩余</span><strong>${remain}<small> 千卡</small></strong><span class="stat-sub">${goal ? `${pct}% / 目标 ${goal} 千卡` : '先设定每日热量目标'}</span></div><div class="stat"><span class="stat-label">今日记录</span><strong>${todayLines.length}<small> 餐</small></strong><span class="stat-sub">${todayLines.map(logLine).slice(0, 2).join('、') || '还没吃'}</span></div></div><div class="collection-bar"><div class="collection-title"><h2>每日摄入</h2><span>本月 · 目标 ${goal} 千卡</span></div></div><div class="journal-list">${
+    days
+      .map(
+        d =>
+          `<div class="journal-day"><header><strong>${fmtDate(d)} ${d === t ? '· 今天' : ''}</strong><span>${dayIntake(d)} / ${goal} 千卡 ${goal ? `(${Math.min(999, Math.round((dayIntake(d) / goal) * 100))}%)` : ''}</span></header><div class="day-bar"><i style="width:${goal ? Math.min(100, (dayIntake(d) / goal) * 100) : 0}%"></i></div>${dayEntries(
+            d,
+          )
+            .map(
+              e =>
+                `<div class="journal-item health-line"><em>${MEALS.find(m => m[0] === e.meal)?.[1] || ''}</em><span class="health-name">${esc(logLine(e))}</span><label class="cal-edit-wrap"><input class="cal-edit" data-cal="${e.id ? `m|${d}|${e.id}` : `w|${d}|${e.meal}|${e.idx}`}" type="number" min="0" max="99999" value="${e.calories || 0}"><small>千卡</small></label>${e.id ? `<button class="icon-button" data-mdel="${d}|${e.id}" aria-label="删除手动记录">${ico('close', 12)}</button>` : ''}</div>`,
+            )
+            .join('')}</div>`,
+      )
+      .join('') ||
+    `<div class="empty"><div>${ico('flame')}</div><h3>本月还没有摄入记录</h3><p>在本周菜单勾选「已吃」，或在上方手动添加。</p></div>`
+  }</div>`;
+  (mount.querySelector('#mh-add') ?? document.createElement('button')).onclick = () => {
+    const name = (mount.querySelector('#mh-name')?.value || '').trim() || '手动记录';
+    const raw = mount.querySelector('#mh-cal')?.value;
+    if (raw === '' || raw == null || Number.isNaN(Number(raw))) {
+      toast('请填写热量（千卡）');
+      return;
+    }
+    const cal = Number(raw);
+    const meal = mount.querySelector('#mh-meal')?.value || 'extra';
+    update(() => addManualEntry(today(), meal, name, cal));
+    toast(`已记录 ${name} ${cal} 千卡`);
+    renderHealth(V());
+  };
+  mount.querySelectorAll('[data-mdel]').forEach(
+    b =>
+      (b.onclick = () => {
+        const [d, id] = b.dataset.mdel.split('|');
+        update(() => removeManualEntry(d, id));
+        renderHealth(V());
+      }),
+  );
+  mount.querySelectorAll('.cal-edit').forEach(inp => {
+    inp.onchange = () => {
+      const p = inp.dataset.cal.split('|');
+      const cal = inp.value;
+      update(() => {
+        if (p[0] === 'm') setEntryCalories({ id: p[2], date: p[1] }, cal);
+        else setEntryCalories({ date: p[1], meal: p[2], idx: Number(p[3]) }, cal);
+      });
+      renderHealth(V());
+    };
+  });
+  (mount.querySelector('#goal') ?? document.createElement('button')).onchange = e => {
+    update(() => (S.nutrition.goal = Math.max(0, Number(e.target.value) || 0)));
+    toast('目标已更新');
+    renderHealth(V());
+  };
+}
 
 // —— 菜品推荐 ——
-const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
-export function renderRecommend(mount){const exp=expiringItems();const eaten=dayIntake(today());const goal=S.nutrition.goal;const remain=Math.max(0,goal-eaten);
-const scored=S.recipes.map(r=>{let score=0;const reasons=[];const used=[];
-for(const ing of r.ingredients||[]){const p=S.pantry.find(pp=>pp.kind==='ingredient'&&nameMatch(pp.name,ing.name)&&pp.inStock!==false&&(Number(pp.qty)||0)>0);if(!p)continue;used.push(p);const d=daysUntil(p.expiryDate);if(d<=2){score+=3;reasons.push(`消耗快过期的${p.name}`)}else score+=1}
-if(used.length>=2)reasons.push(`${used.length} 种食材冰箱里都有`);
-if(r.calories){if(remain&&r.calories<=remain){score+=2;reasons.push(`热量 ${r.calories} 千卡，还在今天额度内`)}else if(remain&&r.calories>remain+400)score-=2}
-return{r,score,reasons:[...new Set(reasons)]}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
-const key=JSON.stringify([exp.map(p=>p.id),remain,goal]);
-if(renderRecommend.key!==key||!Array.isArray(renderRecommend.queue)||!renderRecommend.queue.length){renderRecommend.queue=shuffle([...scored]);renderRecommend.key=key}
-const shown=renderRecommend.queue.splice(0,6);
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">SMART SUGGESTIONS</div><h1>下一餐吃什么？</h1><p>${exp.length?`优先帮你消耗${exp.slice(0,2).map(p=>esc(p.name)).join('、')}这些临期食材。`:'根据冰箱剩余量、保质期和今天的热量余量来推荐。'}</p></div><div class="detail-tools"><button class="secondary" id="rec-refresh">${ico('sparkle')} 换一批</button></div></section><div class="rec-grid">${shown.map(({r,reasons})=>`<article class="recipe-card"><div class="card-image">${r.image?`<img src="${esc(imgSrc(r.image))}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category||'')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(reasons.join(' · ')||'冰箱里有它的食材')}</p><div class="card-meta"><span>${ico('clock',12)} ${fmtTime(r)}</span>${r.calories?`<span>${ico('flame',12)} ${r.calories} 千卡</span>`:''}</div><button class="text-button" data-menu="${r.id}" style="margin-top:10px">${ico('plus',14)} 点这份菜</button></div></article>`).join('')||`<div class="empty" style="grid-column:1/-1"><div>${ico('sparkle')}</div><h3>暂时没有特别的推荐</h3><p>往冰箱里添点食材，或给菜谱填上食材和热量，推荐会更准。</p></div>`}</div>`;
-(mount.querySelector('#rec-refresh')??document.createElement('button')).onclick=()=>{renderRecommend.key='';renderRecommend(V())};
-mount.querySelectorAll('[data-menu]').forEach(b=>b.onclick=()=>orderDialog(S.recipes.find(x=>x.id===b.dataset.menu)))}
+const shuffle = a => {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+export function renderRecommend(mount) {
+  const exp = expiringItems();
+  const eaten = dayIntake(today());
+  const goal = S.nutrition.goal;
+  const remain = Math.max(0, goal - eaten);
+  const scored = S.recipes
+    .map(r => {
+      let score = 0;
+      const reasons = [];
+      const used = [];
+      for (const ing of r.ingredients || []) {
+        const p = S.pantry.find(
+          pp =>
+            pp.kind === 'ingredient' &&
+            nameMatch(pp.name, ing.name) &&
+            pp.inStock !== false &&
+            (Number(pp.qty) || 0) > 0,
+        );
+        if (!p) continue;
+        used.push(p);
+        const d = daysUntil(p.expiryDate);
+        if (d <= 2) {
+          score += 3;
+          reasons.push(`消耗快过期的${p.name}`);
+        } else score += 1;
+      }
+      if (used.length >= 2) reasons.push(`${used.length} 种食材冰箱里都有`);
+      if (r.calories) {
+        if (remain && r.calories <= remain) {
+          score += 2;
+          reasons.push(`热量 ${r.calories} 千卡，还在今天额度内`);
+        } else if (remain && r.calories > remain + 400) score -= 2;
+      }
+      return { r, score, reasons: [...new Set(reasons)] };
+    })
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+  const key = JSON.stringify([exp.map(p => p.id), remain, goal]);
+  if (renderRecommend.key !== key || !Array.isArray(renderRecommend.queue) || !renderRecommend.queue.length) {
+    renderRecommend.queue = shuffle([...scored]);
+    renderRecommend.key = key;
+  }
+  const shown = renderRecommend.queue.splice(0, 6);
+  mount.innerHTML = `<section class="intro"><div><div class="eyebrow">SMART SUGGESTIONS</div><h1>下一餐吃什么？</h1><p>${
+    exp.length
+      ? `优先帮你消耗${exp
+          .slice(0, 2)
+          .map(p => esc(p.name))
+          .join('、')}这些临期食材。`
+      : '根据冰箱剩余量、保质期和今天的热量余量来推荐。'
+  }</p></div><div class="detail-tools"><button class="secondary" id="rec-refresh">${ico('sparkle')} 换一批</button></div></section><div class="rec-grid">${shown.map(({ r, reasons }) => `<article class="recipe-card"><div class="card-image">${r.image ? `<img src="${esc(imgSrc(r.image))}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">` : ''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category || '')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(reasons.join(' · ') || '冰箱里有它的食材')}</p><div class="card-meta"><span>${ico('clock', 12)} ${fmtTime(r)}</span>${r.calories ? `<span>${ico('flame', 12)} ${r.calories} 千卡</span>` : ''}</div><button class="text-button" data-menu="${r.id}" style="margin-top:10px">${ico('plus', 14)} 点这份菜</button></div></article>`).join('') || `<div class="empty" style="grid-column:1/-1"><div>${ico('sparkle')}</div><h3>暂时没有特别的推荐</h3><p>往冰箱里添点食材，或给菜谱填上食材和热量，推荐会更准。</p></div>`}</div>`;
+  (mount.querySelector('#rec-refresh') ?? document.createElement('button')).onclick = () => {
+    renderRecommend.key = '';
+    renderRecommend(V());
+  };
+  mount
+    .querySelectorAll('[data-menu]')
+    .forEach(b => (b.onclick = () => orderDialog(S.recipes.find(x => x.id === b.dataset.menu))));
+}

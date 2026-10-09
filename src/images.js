@@ -1,218 +1,306 @@
 // 配图存储：dataURL 迁入 IndexedDB，状态里只留 idb:<uuid>；http 外链保持原样
-import{compressImage}from'./ui.js';
+import { compressImage } from './ui.js';
 
-const DB='shiji-images',STORE='blobs',FAT=180000,PREFIX='idb:';
-const cache=new Map();
-let dbp=null,idbDisabled=false;
+const DB = 'shiji-images',
+  STORE = 'blobs',
+  FAT = 180000,
+  PREFIX = 'idb:';
+const cache = new Map();
+let dbp = null,
+  idbDisabled = false;
 
-function openDb(){
-  if(idbDisabled||!window.indexedDB)return Promise.reject(new Error('no-idb'));
-  if(dbp)return dbp;
-  dbp=new Promise((res,rej)=>{
-    const r=indexedDB.open(DB,1);
-    r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)};
-    r.onsuccess=()=>res(r.result);
-    r.onerror=()=>{dbp=null;rej(r.error)};
-  }).catch(e=>{idbDisabled=true;throw e});
+function openDb() {
+  if (idbDisabled || !window.indexedDB) return Promise.reject(new Error('no-idb'));
+  if (dbp) return dbp;
+  dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(DB, 1);
+    r.onupgradeneeded = () => {
+      if (!r.result.objectStoreNames.contains(STORE)) r.result.createObjectStore(STORE);
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => {
+      dbp = null;
+      rej(r.error);
+    };
+  }).catch(e => {
+    idbDisabled = true;
+    throw e;
+  });
   return dbp;
 }
-function idbPut(id,blob){return openDb().then(db=>new Promise((res,rej)=>{
-  const t=db.transaction(STORE,'readwrite');
-  t.objectStore(STORE).put(blob,id);
-  t.oncomplete=()=>res();
-  t.onerror=()=>rej(t.error);
-}))}
-function idbGet(id){return openDb().then(db=>new Promise((res,rej)=>{
-  const r=db.transaction(STORE,'readonly').objectStore(STORE).get(id);
-  r.onsuccess=()=>res(r.result||null);
-  r.onerror=()=>rej(r.error);
-}))}
-function idbDel(id){return openDb().then(db=>new Promise((res,rej)=>{
-  const t=db.transaction(STORE,'readwrite');
-  t.objectStore(STORE).delete(id);
-  t.oncomplete=()=>res();
-  t.onerror=()=>rej(t.error);
-}))}
-function idbKeys(){return openDb().then(db=>new Promise((res,rej)=>{
-  const r=db.transaction(STORE,'readonly').objectStore(STORE).getAllKeys();
-  r.onsuccess=()=>res(r.result||[]);
-  r.onerror=()=>rej(r.error);
-}))}
-
-function cacheBlob(id,blob){
-  const prev=cache.get(id);
-  if(prev)URL.revokeObjectURL(prev);
-  cache.set(id,URL.createObjectURL(blob));
+function idbPut(id, blob) {
+  return openDb().then(
+    db =>
+      new Promise((res, rej) => {
+        const t = db.transaction(STORE, 'readwrite');
+        t.objectStore(STORE).put(blob, id);
+        t.oncomplete = () => res();
+        t.onerror = () => rej(t.error);
+      }),
+  );
 }
-export const imgSrc=ref=>{
-  if(!ref)return'';
-  if(ref.startsWith(PREFIX))return cache.get(ref.slice(PREFIX.length))||'';
+function idbGet(id) {
+  return openDb().then(
+    db =>
+      new Promise((res, rej) => {
+        const r = db.transaction(STORE, 'readonly').objectStore(STORE).get(id);
+        r.onsuccess = () => res(r.result || null);
+        r.onerror = () => rej(r.error);
+      }),
+  );
+}
+function idbDel(id) {
+  return openDb().then(
+    db =>
+      new Promise((res, rej) => {
+        const t = db.transaction(STORE, 'readwrite');
+        t.objectStore(STORE).delete(id);
+        t.oncomplete = () => res();
+        t.onerror = () => rej(t.error);
+      }),
+  );
+}
+function idbKeys() {
+  return openDb().then(
+    db =>
+      new Promise((res, rej) => {
+        const r = db.transaction(STORE, 'readonly').objectStore(STORE).getAllKeys();
+        r.onsuccess = () => res(r.result || []);
+        r.onerror = () => rej(r.error);
+      }),
+  );
+}
+
+function cacheBlob(id, blob) {
+  const prev = cache.get(id);
+  if (prev) URL.revokeObjectURL(prev);
+  cache.set(id, URL.createObjectURL(blob));
+}
+export const imgSrc = ref => {
+  if (!ref) return '';
+  if (ref.startsWith(PREFIX)) return cache.get(ref.slice(PREFIX.length)) || '';
   return ref;
 };
-export const isIdbRef=ref=>typeof ref==='string'&&ref.startsWith(PREFIX);
+export const isIdbRef = ref => typeof ref === 'string' && ref.startsWith(PREFIX);
 
-function walkImages(state,fn){
-  for(const r of state.recipes||[]){
-    fn(r,'image',1400);
-    for(const s of r.steps||[])fn(s,'image',800);
+function walkImages(state, fn) {
+  for (const r of state.recipes || []) {
+    fn(r, 'image', 1400);
+    for (const s of r.steps || []) fn(s, 'image', 800);
   }
-  for(const d of state.dining||[])fn(d,'image',1400);
+  for (const d of state.dining || []) fn(d, 'image', 1400);
 }
-export function liveImageIds(state){
-  const ids=new Set();
-  walkImages(state,(obj,key)=>{const v=obj[key];if(isIdbRef(v))ids.add(v.slice(PREFIX.length))});
+export function liveImageIds(state) {
+  const ids = new Set();
+  walkImages(state, (obj, key) => {
+    const v = obj[key];
+    if (isIdbRef(v)) ids.add(v.slice(PREFIX.length));
+  });
   return ids;
 }
-export function hasInlineImages(state){
-  let hit=false;
-  walkImages(state,(obj,key)=>{if(String(obj[key]||'').startsWith('data:image/'))hit=true});
+export function hasInlineImages(state) {
+  let hit = false;
+  walkImages(state, (obj, key) => {
+    if (String(obj[key] || '').startsWith('data:image/')) hit = true;
+  });
   return hit;
 }
-export async function readImageBlob(id){try{return await idbGet(id)}catch{return null}}
-export async function saveImageBlob(id,blob){
-  await idbPut(id,blob);
-  cacheBlob(id,blob);
+export async function readImageBlob(id) {
+  try {
+    return await idbGet(id);
+  } catch {
+    return null;
+  }
 }
-export async function localImageIds(){try{return new Set(await idbKeys())}catch{return new Set()}}
-export async function hashBlob(blob){
-  const buf=await blob.arrayBuffer();
-  const d=await crypto.subtle.digest('SHA-256',buf);
-  return[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+export async function saveImageBlob(id, blob) {
+  await idbPut(id, blob);
+  cacheBlob(id, blob);
 }
-export const isHashId=id=>typeof id==='string'&&/^[a-f0-9]{64}$/i.test(id);
+export async function localImageIds() {
+  try {
+    return new Set(await idbKeys());
+  } catch {
+    return new Set();
+  }
+}
+export async function hashBlob(blob) {
+  const buf = await blob.arrayBuffer();
+  const d = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export const isHashId = id => typeof id === 'string' && /^[a-f0-9]{64}$/i.test(id);
 
-async function blobToDataUrl(blob){
-  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)});
+async function blobToDataUrl(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
 }
 
-export async function storeBlob(blob){
-  const id=await hashBlob(blob);
-  const existed=await idbGet(id).catch(()=>null);
-  if(!existed)await idbPut(id,blob);
-  cacheBlob(id,blob);
-  return PREFIX+id;
+export async function storeBlob(blob) {
+  const id = await hashBlob(blob);
+  const existed = await idbGet(id).catch(() => null);
+  if (!existed) await idbPut(id, blob);
+  cacheBlob(id, blob);
+  return PREFIX + id;
 }
 
-export async function storeImage(dataUrl){
-  if(!dataUrl)return'';
-  if(isIdbRef(dataUrl)||!String(dataUrl).startsWith('data:image/'))return dataUrl;
-  try{
-    const blob=await(await fetch(dataUrl)).blob();
+export async function storeImage(dataUrl) {
+  if (!dataUrl) return '';
+  if (isIdbRef(dataUrl) || !String(dataUrl).startsWith('data:image/')) return dataUrl;
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
     return await storeBlob(blob);
-  }catch{
+  } catch {
     return dataUrl;
   }
 }
 
-export async function canonicalizeImages(state){
-  if(!state)return 0;
-  await hydrateImages(state,{skipCompress:true});
-  let changed=0;
-  const jobs=[];
-  walkImages(state,(obj,key)=>jobs.push({obj,key}));
-  for(const{obj,key}of jobs){
-    const v=obj[key];
-    if(!isIdbRef(v))continue;
-    const old=v.slice(PREFIX.length);
-    if(isHashId(old)){
-      if(!cache.has(old)){
-        const blob=await idbGet(old).catch(()=>null);
-        if(blob)cacheBlob(old,blob);
+export async function canonicalizeImages(state) {
+  if (!state) return 0;
+  await hydrateImages(state, { skipCompress: true });
+  let changed = 0;
+  const jobs = [];
+  walkImages(state, (obj, key) => jobs.push({ obj, key }));
+  for (const { obj, key } of jobs) {
+    const v = obj[key];
+    if (!isIdbRef(v)) continue;
+    const old = v.slice(PREFIX.length);
+    if (isHashId(old)) {
+      if (!cache.has(old)) {
+        const blob = await idbGet(old).catch(() => null);
+        if (blob) cacheBlob(old, blob);
       }
       continue;
     }
-    const blob=await idbGet(old).catch(()=>null);
-    if(!blob)continue;
-    const next=await storeBlob(blob);
-    if(next!==v){obj[key]=next;changed++}
+    const blob = await idbGet(old).catch(() => null);
+    if (!blob) continue;
+    const next = await storeBlob(blob);
+    if (next !== v) {
+      obj[key] = next;
+      changed++;
+    }
   }
   return changed;
 }
 
-export async function ingestFile(file,max=1400){
-  const data=await compressImage(file,max);
+export async function ingestFile(file, max = 1400) {
+  const data = await compressImage(file, max);
   return storeImage(data);
 }
 
-export async function dropImage(ref){
-  if(!isIdbRef(ref))return;
-  const id=ref.slice(PREFIX.length);
-  const u=cache.get(id);
-  if(u){URL.revokeObjectURL(u);cache.delete(id)}
-  try{await idbDel(id)}catch{}
+export async function dropImage(ref) {
+  if (!isIdbRef(ref)) return;
+  const id = ref.slice(PREFIX.length);
+  const u = cache.get(id);
+  if (u) {
+    URL.revokeObjectURL(u);
+    cache.delete(id);
+  }
+  try {
+    await idbDel(id);
+  } catch {}
 }
 
-export async function gcImages(state){
-  try{
-    const live=liveImageIds(state);
-    const keys=await idbKeys();
-    for(const k of keys){if(!live.has(k)){const u=cache.get(k);if(u){URL.revokeObjectURL(u);cache.delete(k)}await idbDel(k)}}
-  }catch{}
-}
-
-async function compressDataUrl(url,max){
-  const blob=await(await fetch(url)).blob();
-  const file=new File([blob],'img',{type:blob.type||'image/jpeg'});
-  const next=await compressImage(file,max);
-  return next&&next.length<url.length?next:url;
-}
-
-export async function missingImageIds(state){
-  const live=liveImageIds(state);
-  const have=await localImageIds();
-  return [...live].filter(id=>!have.has(id));
-}
-
-export async function hydrateImages(state,opts={}){
-  if(!state)return{moved:0,compressed:0,missing:0};
-  let moved=0,compressed=0,missing=0;
-  const jobs=[];
-  walkImages(state,(obj,key,max)=>jobs.push({obj,key,max}));
-  for(const{obj,key,max}of jobs){
-    const v=obj[key];
-    if(typeof v==='string'&&v.startsWith('data:image/')){
-      let data=v;
-      if(!opts.skipCompress&&v.length>FAT){
-        try{const next=await compressDataUrl(v,max);if(next!==v){data=next;compressed++}}catch{}
-      }
-      const stored=await storeImage(data);
-      if(stored!==data&&isIdbRef(stored)){obj[key]=stored;moved++}
-      else obj[key]=stored;
-    }else if(isIdbRef(v)){
-      const id=v.slice(PREFIX.length);
-      if(!cache.has(id)){
-        try{
-          const blob=await idbGet(id);
-          if(blob)cacheBlob(id,blob);
-          else missing++;
-        }catch{missing++}
+export async function gcImages(state) {
+  try {
+    const live = liveImageIds(state);
+    const keys = await idbKeys();
+    for (const k of keys) {
+      if (!live.has(k)) {
+        const u = cache.get(k);
+        if (u) {
+          URL.revokeObjectURL(u);
+          cache.delete(k);
+        }
+        await idbDel(k);
       }
     }
-    await new Promise(r=>setTimeout(r,0));
-  }
-  if(!opts.skipGc)await gcImages(state);
-  return{moved,compressed,missing};
+  } catch {}
 }
 
-export async function inlineImages(state){
-  if(!state)return state;
-  const jobs=[];
-  walkImages(state,(obj,key)=>jobs.push({obj,key}));
-  for(const{obj,key}of jobs){
-    const v=obj[key];
-    if(!isIdbRef(v))continue;
-    const id=v.slice(PREFIX.length);
-    try{
-      const blob=await idbGet(id);
-      if(!blob){obj[key]='';continue}
-      obj[key]=await blobToDataUrl(blob);
-    }catch{obj[key]=''}
+async function compressDataUrl(url, max) {
+  const blob = await (await fetch(url)).blob();
+  const file = new File([blob], 'img', { type: blob.type || 'image/jpeg' });
+  const next = await compressImage(file, max);
+  return next && next.length < url.length ? next : url;
+}
+
+export async function missingImageIds(state) {
+  const live = liveImageIds(state);
+  const have = await localImageIds();
+  return [...live].filter(id => !have.has(id));
+}
+
+export async function hydrateImages(state, opts = {}) {
+  if (!state) return { moved: 0, compressed: 0, missing: 0 };
+  let moved = 0,
+    compressed = 0,
+    missing = 0;
+  const jobs = [];
+  walkImages(state, (obj, key, max) => jobs.push({ obj, key, max }));
+  for (const { obj, key, max } of jobs) {
+    const v = obj[key];
+    if (typeof v === 'string' && v.startsWith('data:image/')) {
+      let data = v;
+      if (!opts.skipCompress && v.length > FAT) {
+        try {
+          const next = await compressDataUrl(v, max);
+          if (next !== v) {
+            data = next;
+            compressed++;
+          }
+        } catch {}
+      }
+      const stored = await storeImage(data);
+      if (stored !== data && isIdbRef(stored)) {
+        obj[key] = stored;
+        moved++;
+      } else obj[key] = stored;
+    } else if (isIdbRef(v)) {
+      const id = v.slice(PREFIX.length);
+      if (!cache.has(id)) {
+        try {
+          const blob = await idbGet(id);
+          if (blob) cacheBlob(id, blob);
+          else missing++;
+        } catch {
+          missing++;
+        }
+      }
+    }
+    await new Promise(r => setTimeout(r, 0));
+  }
+  if (!opts.skipGc) await gcImages(state);
+  return { moved, compressed, missing };
+}
+
+export async function inlineImages(state) {
+  if (!state) return state;
+  const jobs = [];
+  walkImages(state, (obj, key) => jobs.push({ obj, key }));
+  for (const { obj, key } of jobs) {
+    const v = obj[key];
+    if (!isIdbRef(v)) continue;
+    const id = v.slice(PREFIX.length);
+    try {
+      const blob = await idbGet(id);
+      if (!blob) {
+        obj[key] = '';
+        continue;
+      }
+      obj[key] = await blobToDataUrl(blob);
+    } catch {
+      obj[key] = '';
+    }
   }
   return state;
 }
 
-export async function cloneWithInlineImages(state){
-  const copy=JSON.parse(JSON.stringify(state));
+export async function cloneWithInlineImages(state) {
+  const copy = JSON.parse(JSON.stringify(state));
   await inlineImages(copy);
   return copy;
 }

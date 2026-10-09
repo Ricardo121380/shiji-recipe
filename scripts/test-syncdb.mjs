@@ -1,4 +1,10 @@
-import { splitState, assembleState, extractImageIds, unionImageIds, assertStoreable } from '../functions/_lib/syncdb.js';
+import {
+  splitState,
+  assembleState,
+  extractImageIds,
+  unionImageIds,
+  assertStoreable,
+} from '../functions/_lib/syncdb.js';
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);

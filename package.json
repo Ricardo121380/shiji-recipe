@@ -8,9 +8,12 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "deploy": "vite build && npx -y wrangler pages deploy dist --project-name=shiji-recipe --branch=main",
-    "check": "node scripts/check-imports.mjs"
+    "check": "node scripts/check-imports.mjs",
+    "format": "prettier --write src functions scripts vite.config.js",
+    "format:check": "prettier --check src functions scripts vite.config.js"
   },
   "devDependencies": {
+    "prettier": "3.9.9",
     "vite": "^7.1.0"
   }
 }

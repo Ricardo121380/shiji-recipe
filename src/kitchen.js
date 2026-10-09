@@ -1,199 +1,1063 @@
 // 厨房板块：本周菜单 / 冰箱 / 购买清单 / 日用品库存
-import{S,update,uid,today,addDays,mondayOf,fmtDate,weekday,daysUntil,fmtTime,MEALS,PET,EXPIRY_FILTERS,FRIDGE_KINDS,toast,addToMenu,removeMenuItem,setItemDone,menuItems,refOf,findRecipe,findDining,expiringItems,lowPantry,addPantryHistory,generateShopping,pushToShopping,matchRecipes,itemSpecText,refHasPrep,refNeedsDefrost,enabledSpecs,prepItemsFor,prepUpcoming,defrostItemsFor,dayIntake,parseAmountInfo,pantryInStock,fmtPantryCal,pantryCalUnit,expiryLeft,fridgeCatsOf}from'./store.js';
-import{ico,esc}from'./ui.js';
-import{imgSrc}from'./images.js';
-import{openSettings}from'./settings.js';
-import{selectRecipe}from'./recipes.js';
+import {
+  S,
+  update,
+  uid,
+  today,
+  addDays,
+  mondayOf,
+  fmtDate,
+  weekday,
+  daysUntil,
+  fmtTime,
+  MEALS,
+  PET,
+  EXPIRY_FILTERS,
+  FRIDGE_KINDS,
+  toast,
+  addToMenu,
+  removeMenuItem,
+  setItemDone,
+  menuItems,
+  refOf,
+  findRecipe,
+  findDining,
+  expiringItems,
+  lowPantry,
+  addPantryHistory,
+  generateShopping,
+  pushToShopping,
+  matchRecipes,
+  itemSpecText,
+  refHasPrep,
+  refNeedsDefrost,
+  enabledSpecs,
+  prepItemsFor,
+  prepUpcoming,
+  defrostItemsFor,
+  dayIntake,
+  parseAmountInfo,
+  pantryInStock,
+  fmtPantryCal,
+  pantryCalUnit,
+  expiryLeft,
+  fridgeCatsOf,
+} from './store.js';
+import { ico, esc } from './ui.js';
+import { imgSrc } from './images.js';
+import { openSettings } from './settings.js';
+import { selectRecipe } from './recipes.js';
 
-const V=()=>document.querySelector('#view');
+const V = () => document.querySelector('#view');
 
 // —— 点菜弹窗：份数 + 规格 + 日期餐次 ——
-function orderDayHint(d){const t=today();if(d===t)return' · 今天';if(d===addDays(t,-1))return' · 昨天';if(d===addDays(t,-2))return' · 前天';return''}
-export function orderDialog(ref,preset={}){const dlg=document.querySelector('#dialog-root');
-const t=today();const lockSlot=!!(preset.lockSlot&&preset.date&&preset.meal);
-let date=preset.date||t;let meal=preset.meal||(['snack','drink'].includes(ref.type)?'extra':'dinner');let qty=preset.qty||1;
-const days=[];for(let i=-2;i<=6;i++)days.push(addDays(t,i));if(date&&!days.includes(date))days.unshift(date);
-const specs={...(preset.specs||{})};const groups=enabledSpecs(ref);
-const mealLb=MEALS.find(m=>m[0]===meal)?.[1]||meal;
-dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">ORDER THIS</span><h2>点「${esc(ref.name)}」</h2>${ref.calories?`<span class="muted">${ref.calories} 千卡/份</span>`:''}${lockSlot?`<span class="muted">${fmtDate(date)} 周${weekday(date)}${orderDayHint(date)} · ${mealLb}</span>`:''}</div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${lockSlot?'':`<div class="field"><span class="cat-label">就餐日期</span><div class="chips" id="od-days">${days.map(d=>`<button type="button" class="filter ${d===date?'chosen':''}" data-date="${d}">${fmtDate(d)} 周${weekday(d)}${orderDayHint(d)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">餐次</span><div class="chips" id="od-meals">${MEALS.map(([m,ml])=>`<button type="button" class="filter ${m===meal?'chosen':''}" data-meal="${m}">${ml}</button>`).join('')}</div></div>`}<div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="od-minus">−</button><strong id="od-qty">${qty}</strong><button type="button" class="qty-btn" id="od-plus">＋</button></div></div>${groups.map(g=>`<div class="field"><span class="cat-label">${esc(g.name)}（可选）</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o=>`<button type="button" class="filter ${specs[g.name]===o?'chosen':''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref.type==='dining'?`<label class="field">备注 <span class="optional">选填，如：少辣、不要香菜</span><input id="od-note" maxlength="60"></label>`:''}</div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="od-add">${ico('check')} 加入本周菜单</button></div></div></div>`;dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-dlg.querySelectorAll('#od-days [data-date]').forEach(b=>b.onclick=()=>{date=b.dataset.date;dlg.querySelectorAll('#od-days [data-date]').forEach(x=>x.classList.toggle('chosen',x===b))});
-dlg.querySelectorAll('#od-meals [data-meal]').forEach(b=>b.onclick=()=>{meal=b.dataset.meal;dlg.querySelectorAll('#od-meals [data-meal]').forEach(x=>x.classList.toggle('chosen',x===b))});
-(dlg.querySelector('#od-minus')??document.createElement('button')).onclick=()=>{qty=Math.max(1,qty-1);dlg.querySelector('#od-qty').textContent=qty};
-(dlg.querySelector('#od-plus')??document.createElement('button')).onclick=()=>{qty++;dlg.querySelector('#od-qty').textContent=qty};
-dlg.querySelectorAll('[data-spec]').forEach(box=>{const gname=box.dataset.spec;box.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>{const v=b.dataset.opt;if(specs[gname]===v)delete specs[gname];else specs[gname]=v;box.querySelectorAll('[data-opt]').forEach(x=>x.classList.toggle('chosen',specs[gname]===x.dataset.opt))})});
-(dlg.querySelector('#od-add')??document.createElement('button')).onclick=()=>{const note=ref.type==='dining'?dlg.querySelector('#od-note')?.value.trim()||'':'';update(()=>addToMenu(date,meal,ref,qty,{...specs},note));dlg.close();toast(`已点「${ref.name}」×${qty}，${fmtDate(date)} ${MEALS.find(m=>m[0]===meal)[1]}见`)}}
+function orderDayHint(d) {
+  const t = today();
+  if (d === t) return ' · 今天';
+  if (d === addDays(t, -1)) return ' · 昨天';
+  if (d === addDays(t, -2)) return ' · 前天';
+  return '';
+}
+export function orderDialog(ref, preset = {}) {
+  const dlg = document.querySelector('#dialog-root');
+  const t = today();
+  const lockSlot = !!(preset.lockSlot && preset.date && preset.meal);
+  let date = preset.date || t;
+  let meal = preset.meal || (['snack', 'drink'].includes(ref.type) ? 'extra' : 'dinner');
+  let qty = preset.qty || 1;
+  const days = [];
+  for (let i = -2; i <= 6; i++) days.push(addDays(t, i));
+  if (date && !days.includes(date)) days.unshift(date);
+  const specs = { ...(preset.specs || {}) };
+  const groups = enabledSpecs(ref);
+  const mealLb = MEALS.find(m => m[0] === meal)?.[1] || meal;
+  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">ORDER THIS</span><h2>点「${esc(ref.name)}」</h2>${ref.calories ? `<span class="muted">${ref.calories} 千卡/份</span>` : ''}${lockSlot ? `<span class="muted">${fmtDate(date)} 周${weekday(date)}${orderDayHint(date)} · ${mealLb}</span>` : ''}</div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${lockSlot ? '' : `<div class="field"><span class="cat-label">就餐日期</span><div class="chips" id="od-days">${days.map(d => `<button type="button" class="filter ${d === date ? 'chosen' : ''}" data-date="${d}">${fmtDate(d)} 周${weekday(d)}${orderDayHint(d)}</button>`).join('')}</div></div><div class="field"><span class="cat-label">餐次</span><div class="chips" id="od-meals">${MEALS.map(([m, ml]) => `<button type="button" class="filter ${m === meal ? 'chosen' : ''}" data-meal="${m}">${ml}</button>`).join('')}</div></div>`}<div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="od-minus">−</button><strong id="od-qty">${qty}</strong><button type="button" class="qty-btn" id="od-plus">＋</button></div></div>${groups.map(g => `<div class="field"><span class="cat-label">${esc(g.name)}（可选）</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o => `<button type="button" class="filter ${specs[g.name] === o ? 'chosen' : ''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref.type === 'dining' ? `<label class="field">备注 <span class="optional">选填，如：少辣、不要香菜</span><input id="od-note" maxlength="60"></label>` : ''}</div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="od-add">${ico('check')} 加入本周菜单</button></div></div></div>`;
+  dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  dlg.querySelectorAll('#od-days [data-date]').forEach(
+    b =>
+      (b.onclick = () => {
+        date = b.dataset.date;
+        dlg.querySelectorAll('#od-days [data-date]').forEach(x => x.classList.toggle('chosen', x === b));
+      }),
+  );
+  dlg.querySelectorAll('#od-meals [data-meal]').forEach(
+    b =>
+      (b.onclick = () => {
+        meal = b.dataset.meal;
+        dlg.querySelectorAll('#od-meals [data-meal]').forEach(x => x.classList.toggle('chosen', x === b));
+      }),
+  );
+  (dlg.querySelector('#od-minus') ?? document.createElement('button')).onclick = () => {
+    qty = Math.max(1, qty - 1);
+    dlg.querySelector('#od-qty').textContent = qty;
+  };
+  (dlg.querySelector('#od-plus') ?? document.createElement('button')).onclick = () => {
+    qty++;
+    dlg.querySelector('#od-qty').textContent = qty;
+  };
+  dlg.querySelectorAll('[data-spec]').forEach(box => {
+    const gname = box.dataset.spec;
+    box.querySelectorAll('[data-opt]').forEach(
+      b =>
+        (b.onclick = () => {
+          const v = b.dataset.opt;
+          if (specs[gname] === v) delete specs[gname];
+          else specs[gname] = v;
+          box.querySelectorAll('[data-opt]').forEach(x => x.classList.toggle('chosen', specs[gname] === x.dataset.opt));
+        }),
+    );
+  });
+  (dlg.querySelector('#od-add') ?? document.createElement('button')).onclick = () => {
+    const note = ref.type === 'dining' ? dlg.querySelector('#od-note')?.value.trim() || '' : '';
+    update(() => addToMenu(date, meal, ref, qty, { ...specs }, note));
+    dlg.close();
+    toast(`已点「${ref.name}」×${qty}，${fmtDate(date)} ${MEALS.find(m => m[0] === meal)[1]}见`);
+  };
+}
 
 // —— 从列表快速点菜（周菜单 / 推荐等入口） ——
-export function menuAddDialog(date,meal,onDone){const dlg=document.querySelector('#dialog-root');let tab='dish',q='';
-dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m=>m[0]===meal)[1]}</span><h2>点菜</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><label class="search">${ico('search',15)}<input id="pick-search" placeholder="搜索名称…"></label><div class="pick-list" id="pick-list"></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button></div></div></div>`;dlg.showModal();
-const close=()=>dlg.close();dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=close);
-const list=dlg.querySelector('#pick-list'),search=dlg.querySelector('#pick-search');
-const draw=()=>{dlg.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));
-const src=(tab==='dining'?S.dining:S.recipes.filter(r=>r.type===tab)).filter(x=>x.name.toLowerCase().includes(q)||tab==='dining'&&(x.place||'').toLowerCase().includes(q));
-list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(imgSrc(x.image))}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.category,x.place].filter(Boolean).join(' · '))}${x.calories?` · ${x.calories} 千卡/份`:''}</small></span>${ico('plus',16)}</button>`).join('')||'<p class="muted" style="padding:20px">没有匹配的记录</p>';
-list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const ref=tab==='dining'?findDining(b.dataset.id):findRecipe(b.dataset.id);if(!ref)return;dlg.close();orderDialog(ref,{date,meal,lockSlot:true});onDone?.()})};
-dlg.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;draw()});search.oninput=()=>{q=search.value.toLowerCase();draw()};draw()}
+export function menuAddDialog(date, meal, onDone) {
+  const dlg = document.querySelector('#dialog-root');
+  let tab = 'dish',
+    q = '';
+  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m => m[0] === meal)[1]}</span><h2>点菜</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><label class="search">${ico('search', 15)}<input id="pick-search" placeholder="搜索名称…"></label><div class="pick-list" id="pick-list"></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button></div></div></div>`;
+  dlg.showModal();
+  const close = () => dlg.close();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = close));
+  const list = dlg.querySelector('#pick-list'),
+    search = dlg.querySelector('#pick-search');
+  const draw = () => {
+    dlg.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('chosen', b.dataset.tab === tab));
+    const src = (tab === 'dining' ? S.dining : S.recipes.filter(r => r.type === tab)).filter(
+      x => x.name.toLowerCase().includes(q) || (tab === 'dining' && (x.place || '').toLowerCase().includes(q)),
+    );
+    list.innerHTML =
+      src
+        .map(
+          x =>
+            `<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image ? `<img src="${esc(imgSrc(x.image))}" alt="" onerror="this.style.display='none'">` : ico('bowl', 16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.category, x.place].filter(Boolean).join(' · '))}${x.calories ? ` · ${x.calories} 千卡/份` : ''}</small></span>${ico('plus', 16)}</button>`,
+        )
+        .join('') || '<p class="muted" style="padding:20px">没有匹配的记录</p>';
+    list.querySelectorAll('[data-id]').forEach(
+      b =>
+        (b.onclick = () => {
+          const ref = tab === 'dining' ? findDining(b.dataset.id) : findRecipe(b.dataset.id);
+          if (!ref) return;
+          dlg.close();
+          orderDialog(ref, { date, meal, lockSlot: true });
+          onDone?.();
+        }),
+    );
+  };
+  dlg.querySelectorAll('[data-tab]').forEach(
+    b =>
+      (b.onclick = () => {
+        tab = b.dataset.tab;
+        draw();
+      }),
+  );
+  search.oninput = () => {
+    q = search.value.toLowerCase();
+    draw();
+  };
+  draw();
+}
 
 // —— 编辑菜单项：数量 / 规格 / 更换菜品 ——
-function editMenuItem(date,meal,idx){const item=menuItems(date,meal)[idx];if(!item)return;const dlg=document.querySelector('#dialog-root');
-let qty=item.qty||1;const specs={...(item.specs||{})};const ref=refOf(item);const groups=ref?enabledSpecs(ref):[];
-dlg.innerHTML=`<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m=>m[0]===meal)[1]}</span><h2>编辑「${esc(item.name)}」</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="em-minus">−</button><strong id="em-qty">${qty}</strong><button type="button" class="qty-btn" id="em-plus">＋</button></div></div>${groups.map(g=>`<div class="field"><span class="cat-label">${esc(g.name)}</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o=>`<button type="button" class="filter ${specs[g.name]===o?'chosen':''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref?.type==='dining'?`<label class="field">备注 <input id="em-note" maxlength="60" value="${esc(item.note||'')}"></label>`:''}<div class="field"><span class="cat-label">更换菜品</span><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><div class="pick-list" id="em-list" style="max-height:26dvh"></div></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="em-save">${ico('check')} 保存</button></div></div></div>`;dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-(dlg.querySelector('#em-minus')??document.createElement('button')).onclick=()=>{qty=Math.max(1,qty-1);dlg.querySelector('#em-qty').textContent=qty};(dlg.querySelector('#em-plus')??document.createElement('button')).onclick=()=>{qty++;dlg.querySelector('#em-qty').textContent=qty};
-dlg.querySelectorAll('[data-spec]').forEach(box=>{const gname=box.dataset.spec;box.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>{const v=b.dataset.opt;if(specs[gname]===v)delete specs[gname];else specs[gname]=v;box.querySelectorAll('[data-opt]').forEach(x=>x.classList.toggle('chosen',specs[gname]===x.dataset.opt))})});
-let tab='dish';const list=dlg.querySelector('#em-list');
-const drawList=()=>{dlg.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));
-const src=(tab==='dining'?S.dining:S.recipes.filter(r=>r.type===tab)).filter(x=>x.id!==item.refId);
-list.innerHTML=src.map(x=>`<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image?`<img src="${esc(imgSrc(x.image))}" alt="" onerror="this.style.display='none'">`:ico('bowl',16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.category,x.place].filter(Boolean).join(' · '))}</small></span></button>`).join('')||'<p class="muted" style="padding:12px">没有可选记录</p>';
-list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{const ref2=tab==='dining'?findDining(b.dataset.id):findRecipe(b.dataset.id);if(!ref2)return;update(()=>{const it=menuItems(date,meal)[idx];if(!it)return;if(it.done)setItemDone(date,meal,idx,false);it.refType=ref2.type==='dining'?'dining':'recipe';it.refId=ref2.id;it.name=ref2.name;it.deducted=[];if(!ref2.specGroupIds?.length)it.specs={}});dlg.close();toast('已更换菜品');renderWeek(V())})};
-dlg.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;drawList()});drawList();
-(dlg.querySelector('#em-save')??document.createElement('button')).onclick=()=>{update(()=>{const it=menuItems(date,meal)[idx];if(!it)return;const wasDone=it.done;const newQty=qty,newSpecs={...specs};if(wasDone)setItemDone(date,meal,idx,false);it.qty=newQty;it.specs=newSpecs;it.note=ref?.type==='dining'?dlg.querySelector('#em-note')?.value.trim()||'':it.note;if(wasDone)setItemDone(date,meal,idx,true)});dlg.close();toast('已更新');renderWeek(V())}}
+function editMenuItem(date, meal, idx) {
+  const item = menuItems(date, meal)[idx];
+  if (!item) return;
+  const dlg = document.querySelector('#dialog-root');
+  let qty = item.qty || 1;
+  const specs = { ...(item.specs || {}) };
+  const ref = refOf(item);
+  const groups = ref ? enabledSpecs(ref) : [];
+  dlg.innerHTML = `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">${fmtDate(date)} · ${MEALS.find(m => m[0] === meal)[1]}</span><h2>编辑「${esc(item.name)}」</h2></div><button class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field"><span class="cat-label">份数</span><div class="qty-row"><button type="button" class="qty-btn" id="em-minus">−</button><strong id="em-qty">${qty}</strong><button type="button" class="qty-btn" id="em-plus">＋</button></div></div>${groups.map(g => `<div class="field"><span class="cat-label">${esc(g.name)}</span><div class="chips" data-spec="${esc(g.name)}">${g.options.map(o => `<button type="button" class="filter ${specs[g.name] === o ? 'chosen' : ''}" data-opt="${esc(o)}">${esc(o)}</button>`).join('')}</div></div>`).join('')}${ref?.type === 'dining' ? `<label class="field">备注 <input id="em-note" maxlength="60" value="${esc(item.note || '')}"></label>` : ''}<div class="field"><span class="cat-label">更换菜品</span><div class="type-tabs" role="tablist"><button data-tab="dish">菜单</button><button data-tab="drink">水吧</button><button data-tab="dining">外出就餐</button></div><div class="pick-list" id="em-list" style="max-height:26dvh"></div></div></div><div class="modal-footer"><span></span><div><button class="secondary" data-close>取消</button><button class="primary" id="em-save">${ico('check')} 保存</button></div></div></div>`;
+  dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  (dlg.querySelector('#em-minus') ?? document.createElement('button')).onclick = () => {
+    qty = Math.max(1, qty - 1);
+    dlg.querySelector('#em-qty').textContent = qty;
+  };
+  (dlg.querySelector('#em-plus') ?? document.createElement('button')).onclick = () => {
+    qty++;
+    dlg.querySelector('#em-qty').textContent = qty;
+  };
+  dlg.querySelectorAll('[data-spec]').forEach(box => {
+    const gname = box.dataset.spec;
+    box.querySelectorAll('[data-opt]').forEach(
+      b =>
+        (b.onclick = () => {
+          const v = b.dataset.opt;
+          if (specs[gname] === v) delete specs[gname];
+          else specs[gname] = v;
+          box.querySelectorAll('[data-opt]').forEach(x => x.classList.toggle('chosen', specs[gname] === x.dataset.opt));
+        }),
+    );
+  });
+  let tab = 'dish';
+  const list = dlg.querySelector('#em-list');
+  const drawList = () => {
+    dlg.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('chosen', b.dataset.tab === tab));
+    const src = (tab === 'dining' ? S.dining : S.recipes.filter(r => r.type === tab)).filter(x => x.id !== item.refId);
+    list.innerHTML =
+      src
+        .map(
+          x =>
+            `<button class="pick-item" data-id="${x.id}"><span class="pick-thumb">${x.image ? `<img src="${esc(imgSrc(x.image))}" alt="" onerror="this.style.display='none'">` : ico('bowl', 16)}</span><span class="pick-info"><strong>${esc(x.name)}</strong><small>${esc([x.category, x.place].filter(Boolean).join(' · '))}</small></span></button>`,
+        )
+        .join('') || '<p class="muted" style="padding:12px">没有可选记录</p>';
+    list.querySelectorAll('[data-id]').forEach(
+      b =>
+        (b.onclick = () => {
+          const ref2 = tab === 'dining' ? findDining(b.dataset.id) : findRecipe(b.dataset.id);
+          if (!ref2) return;
+          update(() => {
+            const it = menuItems(date, meal)[idx];
+            if (!it) return;
+            if (it.done) setItemDone(date, meal, idx, false);
+            it.refType = ref2.type === 'dining' ? 'dining' : 'recipe';
+            it.refId = ref2.id;
+            it.name = ref2.name;
+            it.deducted = [];
+            if (!ref2.specGroupIds?.length) it.specs = {};
+          });
+          dlg.close();
+          toast('已更换菜品');
+          renderWeek(V());
+        }),
+    );
+  };
+  dlg.querySelectorAll('[data-tab]').forEach(
+    b =>
+      (b.onclick = () => {
+        tab = b.dataset.tab;
+        drawList();
+      }),
+  );
+  drawList();
+  (dlg.querySelector('#em-save') ?? document.createElement('button')).onclick = () => {
+    update(() => {
+      const it = menuItems(date, meal)[idx];
+      if (!it) return;
+      const wasDone = it.done;
+      const newQty = qty,
+        newSpecs = { ...specs };
+      if (wasDone) setItemDone(date, meal, idx, false);
+      it.qty = newQty;
+      it.specs = newSpecs;
+      it.note = ref?.type === 'dining' ? dlg.querySelector('#em-note')?.value.trim() || '' : it.note;
+      if (wasDone) setItemDone(date, meal, idx, true);
+    });
+    dlg.close();
+    toast('已更新');
+    renderWeek(V());
+  };
+}
 
 // —— 本周菜单 ——
-export function renderWeek(mount){const start=mondayOf(addDays(mondayOf(today()),(renderWeek.offset||0)*7));
-const days=Array.from({length:7},(_,i)=>addDays(start,i));const minDate=addDays(today(),-2);
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">THIS WEEK'S TABLE</div><h1>本周，吃点什么？</h1><p>点菜自动排进格子；吃过的点 ✓ 才扣库存记热量；有「提前准备」步骤的前一晚会提醒。前两天的就餐也可以补记或修改。</p></div><div class="week-nav"><button class="secondary" id="w-prev">‹ 上一周</button><button class="secondary" id="w-today">本周</button><button class="secondary" id="w-next">下一周 ›</button></div></section><div class="week-grid">${['一','二','三','四','五','六','日'].map((w,i)=>{const d=days[i];const canAdd=d>=minDate;return`<div class="week-day ${d===today()?'today':''}"><header><strong>周${w}</strong><span>${Number(d.slice(5,7))}/${Number(d.slice(8,10))}</span></header>${MEALS.map(([m,ml])=>`<div class="meal-slot"><div class="meal-head"><span>${ml}</span>${canAdd?`<button class="icon-button" data-add="${d}|${m}" aria-label="点菜">${ico('plus',13)}</button>`:''}</div>${menuItems(d,m).map((item,idx)=>{const prep=refHasPrep(refOf(item));const df=refNeedsDefrost(refOf(item));const rr=refOf(item);const cal=item.calories!=null?Math.round(Number(item.calories)):(rr?.calories?Math.round(rr.calories*(item.qty||1)):null);return`<div class="menu-item ${item.done?'done':''}"><button class="item-done" data-done="${d}|${m}|${idx}" aria-label="标记已吃" aria-pressed="${!!item.done}">${ico('check',12)}</button><span class="item-body" data-edit="${d}|${m}|${idx}" title="${esc(item.name)}"><span class="item-name">${esc(item.name)}${(item.qty||1)>1?` ×${item.qty}`:''}${cal?` <em class="item-cal">${cal}千卡</em>`:''}</span>${itemSpecText(item)||item.note?`<small class="item-specs">${esc([itemSpecText(item),item.note].filter(Boolean).join(' · '))}</small>`:''}${prep?'<small class="item-prep">提前准备</small>':''}${df?'<small class="item-defrost">需解冻</small>':''}</span><button class="icon-button" data-remove="${d}|${m}|${idx}" aria-label="移除">${ico('close',12)}</button></div>`}).join('')||'<span class="meal-empty">未安排 · 点 + 点菜</span>'}</div>`).join('')}</div>`}).join('')}</div><p class="muted week-tip">本周已记录 ${days.reduce((n,d)=>n+menuItems(d,'breakfast').concat(menuItems(d,'lunch'),menuItems(d,'dinner'),menuItems(d,'extra')).filter(x=>x.done).length,0)} 餐 · 今日摄入 ${dayIntake(today())} 千卡</p>`;
-(mount.querySelector('#w-prev')??document.createElement('button')).onclick=()=>{renderWeek.offset=(renderWeek.offset||0)-1;renderWeek(V())};(mount.querySelector('#w-next')??document.createElement('button')).onclick=()=>{renderWeek.offset=(renderWeek.offset||0)+1;renderWeek(V())};(mount.querySelector('#w-today')??document.createElement('button')).onclick=()=>{renderWeek.offset=0;renderWeek(V())};
-mount.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const[d,m]=b.dataset.add.split('|');menuAddDialog(d,m,()=>renderWeek(V()))});
-mount.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{const[d,m,i]=b.dataset.remove.split('|');update(()=>{const it=menuItems(d,m)[Number(i)];if(it?.done)setItemDone(d,m,Number(i),false);removeMenuItem(d,m,Number(i))})});
-mount.querySelectorAll('[data-done]').forEach(b=>b.onclick=()=>{const[d,m,i]=b.dataset.done.split('|');const it=menuItems(d,m)[Number(i)];if(!it)return;update(()=>setItemDone(d,m,Number(i),!it.done))});
-mount.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const[d,m,i]=b.dataset.edit.split('|');editMenuItem(d,m,Number(i))})}
+export function renderWeek(mount) {
+  const start = mondayOf(addDays(mondayOf(today()), (renderWeek.offset || 0) * 7));
+  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const minDate = addDays(today(), -2);
+  mount.innerHTML = `<section class="intro"><div><div class="eyebrow">THIS WEEK'S TABLE</div><h1>本周，吃点什么？</h1><p>点菜自动排进格子；吃过的点 ✓ 才扣库存记热量；有「提前准备」步骤的前一晚会提醒。前两天的就餐也可以补记或修改。</p></div><div class="week-nav"><button class="secondary" id="w-prev">‹ 上一周</button><button class="secondary" id="w-today">本周</button><button class="secondary" id="w-next">下一周 ›</button></div></section><div class="week-grid">${[
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '日',
+  ]
+    .map((w, i) => {
+      const d = days[i];
+      const canAdd = d >= minDate;
+      return `<div class="week-day ${d === today() ? 'today' : ''}"><header><strong>周${w}</strong><span>${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}</span></header>${MEALS.map(
+        ([m, ml]) =>
+          `<div class="meal-slot"><div class="meal-head"><span>${ml}</span>${canAdd ? `<button class="icon-button" data-add="${d}|${m}" aria-label="点菜">${ico('plus', 13)}</button>` : ''}</div>${
+            menuItems(d, m)
+              .map((item, idx) => {
+                const prep = refHasPrep(refOf(item));
+                const df = refNeedsDefrost(refOf(item));
+                const rr = refOf(item);
+                const cal =
+                  item.calories != null
+                    ? Math.round(Number(item.calories))
+                    : rr?.calories
+                      ? Math.round(rr.calories * (item.qty || 1))
+                      : null;
+                return `<div class="menu-item ${item.done ? 'done' : ''}"><button class="item-done" data-done="${d}|${m}|${idx}" aria-label="标记已吃" aria-pressed="${!!item.done}">${ico('check', 12)}</button><span class="item-body" data-edit="${d}|${m}|${idx}" title="${esc(item.name)}"><span class="item-name">${esc(item.name)}${(item.qty || 1) > 1 ? ` ×${item.qty}` : ''}${cal ? ` <em class="item-cal">${cal}千卡</em>` : ''}</span>${itemSpecText(item) || item.note ? `<small class="item-specs">${esc([itemSpecText(item), item.note].filter(Boolean).join(' · '))}</small>` : ''}${prep ? '<small class="item-prep">提前准备</small>' : ''}${df ? '<small class="item-defrost">需解冻</small>' : ''}</span><button class="icon-button" data-remove="${d}|${m}|${idx}" aria-label="移除">${ico('close', 12)}</button></div>`;
+              })
+              .join('') || '<span class="meal-empty">未安排 · 点 + 点菜</span>'
+          }</div>`,
+      ).join('')}</div>`;
+    })
+    .join('')}</div><p class="muted week-tip">本周已记录 ${days.reduce(
+    (n, d) =>
+      n +
+      menuItems(d, 'breakfast')
+        .concat(menuItems(d, 'lunch'), menuItems(d, 'dinner'), menuItems(d, 'extra'))
+        .filter(x => x.done).length,
+    0,
+  )} 餐 · 今日摄入 ${dayIntake(today())} 千卡</p>`;
+  (mount.querySelector('#w-prev') ?? document.createElement('button')).onclick = () => {
+    renderWeek.offset = (renderWeek.offset || 0) - 1;
+    renderWeek(V());
+  };
+  (mount.querySelector('#w-next') ?? document.createElement('button')).onclick = () => {
+    renderWeek.offset = (renderWeek.offset || 0) + 1;
+    renderWeek(V());
+  };
+  (mount.querySelector('#w-today') ?? document.createElement('button')).onclick = () => {
+    renderWeek.offset = 0;
+    renderWeek(V());
+  };
+  mount.querySelectorAll('[data-add]').forEach(
+    b =>
+      (b.onclick = () => {
+        const [d, m] = b.dataset.add.split('|');
+        menuAddDialog(d, m, () => renderWeek(V()));
+      }),
+  );
+  mount.querySelectorAll('[data-remove]').forEach(
+    b =>
+      (b.onclick = () => {
+        const [d, m, i] = b.dataset.remove.split('|');
+        update(() => {
+          const it = menuItems(d, m)[Number(i)];
+          if (it?.done) setItemDone(d, m, Number(i), false);
+          removeMenuItem(d, m, Number(i));
+        });
+      }),
+  );
+  mount.querySelectorAll('[data-done]').forEach(
+    b =>
+      (b.onclick = () => {
+        const [d, m, i] = b.dataset.done.split('|');
+        const it = menuItems(d, m)[Number(i)];
+        if (!it) return;
+        update(() => setItemDone(d, m, Number(i), !it.done));
+      }),
+  );
+  mount.querySelectorAll('[data-edit]').forEach(
+    b =>
+      (b.onclick = () => {
+        const [d, m, i] = b.dataset.edit.split('|');
+        editMenuItem(d, m, Number(i));
+      }),
+  );
+}
 
 // —— 冰箱 ——
-export function renderFridge(mount){const state=renderFridge.state=renderFridge.state||{filter:'all',kind:'ingredient',matchIds:[],q:''};
-if(!state.cat)state.cat='全部';
-const listed=()=>{const kindItems=S.pantry.filter(p=>(p.kind||'ingredient')===state.kind);
-const catItems=state.cat==='全部'?kindItems:kindItems.filter(p=>p.category===state.cat);
-const inFilter=catItems.filter(p=>{if(state.filter==='empty')return!pantryInStock(p);if(state.filter!=='all'&&!pantryInStock(p))return false;const d=daysUntil(p.expiryDate);return state.filter==='all'||state.filter==='fresh'&&d>7||state.filter==='soon'&&d<=7&&d>=1||state.filter==='expired'&&d<1});
-const q=(state.q||'').trim().toLowerCase();
-const hit=q?inFilter.filter(p=>(p.name+' '+(p.brand||'')+' '+(p.flavor||'')+' '+p.category+' '+(p.notes||'')+' '+(p.keep||'')).toLowerCase().includes(q)):inFilter;
-return hit.slice().sort((a,b)=>(pantryInStock(b)?1:0)-(pantryInStock(a)?1:0)||daysUntil(a.expiryDate)-daysUntil(b.expiryDate))};
-const rowHtml=item=>{const stock=pantryInStock(item);const left=expiryLeft(item.expiryDate);const lowBadge=stock&&item.lowAt&&Number(item.qty)<=Number(item.lowAt);const ing=(!item.kind||item.kind==='ingredient');const cal=fmtPantryCal(item);const sub=ing?[item.category,cal].filter(Boolean).join(' · '):[item.brand,item.flavor,item.category,cal].filter(Boolean).join(' · ');
-return`<div class="food-row ${stock?'':'row-empty'} ${left?.cls==='expired'?'row-expired':''}">${ing?`<button class="match-check ${state.matchIds.includes(item.id)?'chosen':''}" data-match="${item.id}" title="选它找菜谱">${ico(state.matchIds.includes(item.id)?'check':'search',13)}</button>`:''}<div class="food-main"><strong>${esc(item.name)}</strong>${sub?`<span class="food-meta">${esc(sub)}</span>`:''}<div class="food-badges">${left?`<span class="badge ${left.cls}">${esc(left.label)}</span>`:''}${stock?'':'<span class="badge empty">无库存</span>'}${lowBadge?'<span class="badge low">余量不足</span>':''}${ing?petBadge('🐱',item.petCat)+petBadge('🐶',item.petDog):''}</div></div><div class="food-qty ${stock?'':'out'}"><button class="qty-btn" data-deduct="${item.id}" aria-label="减少库存" ${stock?'':'disabled'}>−</button><strong>${stock?esc(item.qty):'无'}</strong><small>${esc(item.unit)}</small><button class="qty-btn" data-restock="${item.id}" aria-label="增加库存">＋</button></div><button class="text-button" data-shop="${item.id}">${ico('cart',13)} 加清单</button><div class="food-tools"><button class="icon-button" data-edit="${item.id}" aria-label="编辑">${ico('edit',15)}</button><button class="icon-button" data-del="${item.id}" aria-label="删除">${ico('trash',15)}</button></div></div>`};
-const bindRows=()=>{
-mount.querySelectorAll('[data-match]').forEach(b=>b.onclick=()=>{const id=b.dataset.match;const i=state.matchIds.indexOf(id);if(i>=0)state.matchIds.splice(i,1);else state.matchIds.push(id);renderFridge(V())});
-mount.querySelectorAll('[data-deduct]').forEach(b=>b.onclick=()=>{update(()=>{const p=S.pantry.find(x=>x.id===b.dataset.deduct);if(!p)return;p.qty=Math.max(0,(Number(p.qty)||0)-1);if(p.qty<=0)p.inStock=false});renderFridge(V())});
-mount.querySelectorAll('[data-restock]').forEach(b=>b.onclick=()=>{update(()=>{const p=S.pantry.find(x=>x.id===b.dataset.restock);if(!p)return;p.qty=(Number(p.qty)||0)+1;p.inStock=true});renderFridge(V())});
-mount.querySelectorAll('[data-shop]').forEach(b=>b.onclick=()=>{const p=S.pantry.find(x=>x.id===b.dataset.shop);addToShopDialog(p,p?.kind==='other'?'other':'food')});
-mount.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>foodDialog(S.pantry.find(x=>x.id===b.dataset.edit)));
-mount.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(window.confirm('确定删除这条库存？')){update(()=>S.pantry=S.pantry.filter(x=>x.id!==b.dataset.del));renderFridge(V())}});
-mount.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>selectRecipe(b.dataset.goto));
-mount.querySelectorAll('[data-order]').forEach(b=>b.onclick=()=>orderDialog(findRecipe(b.dataset.order)))};
-const paintList=()=>{const items=listed();const grid=mount.querySelector('.fridge-list');if(!grid){draw();return}
-const q=(state.q||'').trim();
-grid.innerHTML=items.map(rowHtml).join('')||`<div class="empty" style="grid-column:1/-1"><div>${ico('fridge')}</div><h3>${q?'没有匹配的记录':'这里还没有记录'}</h3><p>${q?'换个关键词试试。':'点右上角「添加」。'}</p></div>`;
-bindRows()};
-const draw=()=>{const exp=expiringItems(),low=lowPantry();
-const match=state.matchIds.length?matchRecipes(state.matchIds):null;
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">INSIDE THE FRIDGE</div><h1>冰箱里有什么？</h1><p>记录库存、保质期，快过期会提醒；零食速食单独放，猫狗能不能吃也标出来。</p></div><div class="detail-tools"><button class="text-button" id="manage-cats">${ico('settings',15)} 分类</button><button class="primary" id="add-food">${ico('plus')} 添加</button></div></section>${exp.length?`<div class="warn-banner">${ico('bell',18)}<div><strong>${exp.length} 项临期或已过期</strong><span>${exp.slice(0,3).map(p=>{const left=expiryLeft(p.expiryDate);return`${esc(p.name)}（${esc(left?.label||'临期')}）`}).join('、')}${exp.length>3?' 等':''}</span></div></div>`:''}<div class="collection-bar with-venues"><div class="type-tabs" role="tablist">${FRIDGE_KINDS.map(([k,lb])=>`<button data-kind="${k}" class="${state.kind===k?'chosen':''}">${lb}</button>`).join('')}</div><div class="filters" style="margin:0">${EXPIRY_FILTERS.map(([f,label])=>`<button data-exp="${f}" class="filter ${state.filter===f?'chosen':''}">${label}</button>`).join('')}</div><label class="search">${ico('search',15)}<input id="f-search" placeholder="搜索名称、品牌、分类…" value="${esc(state.q||'')}" aria-label="搜索冰箱"><kbd>⌕</kbd></label></div><div class="filters" style="margin:14px 0 16px">${['全部',...fridgeCatsOf(state.kind)].map(c=>`<button data-fcat="${esc(c)}" class="filter ${state.cat===c?'chosen':''}">${esc(c)}</button>`).join('')}<button class="filter manage" id="fcat-edit">${ico('settings',13)} 编辑分类</button></div><div class="fridge-list"></div>${low.length?`<p class="muted">低库存提醒：${low.map(p=>esc(p.name)).join('、')}</p>`:''}<div class="match-panel">${state.matchIds.length?`<div class="collection-bar"><div class="collection-title"><h2>用所选食材做菜</h2><span>已选 ${state.matchIds.length} 种 · 点食材行左侧按钮增减</span></div></div>${match.all.length?`<h3 class="match-title">同时包含全部所选</h3><div class="cards">${match.all.map(x=>matchCard(x.r,x.hit)).join('')}</div>`:''}${match.some.length?`<h3 class="match-title">包含其中部分</h3><div class="cards">${match.some.map(x=>matchCard(x.r,x.hit)).join('')}</div>`:''}${!match.all.length&&!match.some.length?'<p class="muted">所选食材暂时匹配不到菜谱，先去「菜谱」里记录一道吧。</p>':''}`:''}</div>`;
-(mount.querySelector('#manage-cats')??document.createElement('button')).onclick=()=>openSettings();
-(mount.querySelector('#add-food')??document.createElement('button')).onclick=()=>foodDialog(null);
-mount.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{state.kind=b.dataset.kind;state.cat='全部';state.q='';renderFridge(V())});
-mount.querySelectorAll('[data-exp]').forEach(b=>b.onclick=()=>{state.filter=b.dataset.exp;renderFridge(V())});
-mount.querySelectorAll('[data-fcat]').forEach(b=>b.onclick=()=>{state.cat=b.dataset.fcat;renderFridge(V())});
-(mount.querySelector('#fcat-edit')??document.createElement('button')).onclick=()=>openSettings();
-(mount.querySelector('#f-search')??document.createElement('input')).oninput=e=>{state.q=e.target.value;paintList()};
-paintList()};
-draw()}
+export function renderFridge(mount) {
+  const state = (renderFridge.state = renderFridge.state || { filter: 'all', kind: 'ingredient', matchIds: [], q: '' });
+  if (!state.cat) state.cat = '全部';
+  const listed = () => {
+    const kindItems = S.pantry.filter(p => (p.kind || 'ingredient') === state.kind);
+    const catItems = state.cat === '全部' ? kindItems : kindItems.filter(p => p.category === state.cat);
+    const inFilter = catItems.filter(p => {
+      if (state.filter === 'empty') return !pantryInStock(p);
+      if (state.filter !== 'all' && !pantryInStock(p)) return false;
+      const d = daysUntil(p.expiryDate);
+      return (
+        state.filter === 'all' ||
+        (state.filter === 'fresh' && d > 7) ||
+        (state.filter === 'soon' && d <= 7 && d >= 1) ||
+        (state.filter === 'expired' && d < 1)
+      );
+    });
+    const q = (state.q || '').trim().toLowerCase();
+    const hit = q
+      ? inFilter.filter(p =>
+          (
+            p.name +
+            ' ' +
+            (p.brand || '') +
+            ' ' +
+            (p.flavor || '') +
+            ' ' +
+            p.category +
+            ' ' +
+            (p.notes || '') +
+            ' ' +
+            (p.keep || '')
+          )
+            .toLowerCase()
+            .includes(q),
+        )
+      : inFilter;
+    return hit
+      .slice()
+      .sort(
+        (a, b) =>
+          (pantryInStock(b) ? 1 : 0) - (pantryInStock(a) ? 1 : 0) || daysUntil(a.expiryDate) - daysUntil(b.expiryDate),
+      );
+  };
+  const rowHtml = item => {
+    const stock = pantryInStock(item);
+    const left = expiryLeft(item.expiryDate);
+    const lowBadge = stock && item.lowAt && Number(item.qty) <= Number(item.lowAt);
+    const ing = !item.kind || item.kind === 'ingredient';
+    const cal = fmtPantryCal(item);
+    const sub = ing
+      ? [item.category, cal].filter(Boolean).join(' · ')
+      : [item.brand, item.flavor, item.category, cal].filter(Boolean).join(' · ');
+    return `<div class="food-row ${stock ? '' : 'row-empty'} ${left?.cls === 'expired' ? 'row-expired' : ''}">${ing ? `<button class="match-check ${state.matchIds.includes(item.id) ? 'chosen' : ''}" data-match="${item.id}" title="选它找菜谱">${ico(state.matchIds.includes(item.id) ? 'check' : 'search', 13)}</button>` : ''}<div class="food-main"><strong>${esc(item.name)}</strong>${sub ? `<span class="food-meta">${esc(sub)}</span>` : ''}<div class="food-badges">${left ? `<span class="badge ${left.cls}">${esc(left.label)}</span>` : ''}${stock ? '' : '<span class="badge empty">无库存</span>'}${lowBadge ? '<span class="badge low">余量不足</span>' : ''}${ing ? petBadge('🐱', item.petCat) + petBadge('🐶', item.petDog) : ''}</div></div><div class="food-qty ${stock ? '' : 'out'}"><button class="qty-btn" data-deduct="${item.id}" aria-label="减少库存" ${stock ? '' : 'disabled'}>−</button><strong>${stock ? esc(item.qty) : '无'}</strong><small>${esc(item.unit)}</small><button class="qty-btn" data-restock="${item.id}" aria-label="增加库存">＋</button></div><button class="text-button" data-shop="${item.id}">${ico('cart', 13)} 加清单</button><div class="food-tools"><button class="icon-button" data-edit="${item.id}" aria-label="编辑">${ico('edit', 15)}</button><button class="icon-button" data-del="${item.id}" aria-label="删除">${ico('trash', 15)}</button></div></div>`;
+  };
+  const bindRows = () => {
+    mount.querySelectorAll('[data-match]').forEach(
+      b =>
+        (b.onclick = () => {
+          const id = b.dataset.match;
+          const i = state.matchIds.indexOf(id);
+          if (i >= 0) state.matchIds.splice(i, 1);
+          else state.matchIds.push(id);
+          renderFridge(V());
+        }),
+    );
+    mount.querySelectorAll('[data-deduct]').forEach(
+      b =>
+        (b.onclick = () => {
+          update(() => {
+            const p = S.pantry.find(x => x.id === b.dataset.deduct);
+            if (!p) return;
+            p.qty = Math.max(0, (Number(p.qty) || 0) - 1);
+            if (p.qty <= 0) p.inStock = false;
+          });
+          renderFridge(V());
+        }),
+    );
+    mount.querySelectorAll('[data-restock]').forEach(
+      b =>
+        (b.onclick = () => {
+          update(() => {
+            const p = S.pantry.find(x => x.id === b.dataset.restock);
+            if (!p) return;
+            p.qty = (Number(p.qty) || 0) + 1;
+            p.inStock = true;
+          });
+          renderFridge(V());
+        }),
+    );
+    mount.querySelectorAll('[data-shop]').forEach(
+      b =>
+        (b.onclick = () => {
+          const p = S.pantry.find(x => x.id === b.dataset.shop);
+          addToShopDialog(p, p?.kind === 'other' ? 'other' : 'food');
+        }),
+    );
+    mount
+      .querySelectorAll('[data-edit]')
+      .forEach(b => (b.onclick = () => foodDialog(S.pantry.find(x => x.id === b.dataset.edit))));
+    mount.querySelectorAll('[data-del]').forEach(
+      b =>
+        (b.onclick = () => {
+          if (window.confirm('确定删除这条库存？')) {
+            update(() => (S.pantry = S.pantry.filter(x => x.id !== b.dataset.del)));
+            renderFridge(V());
+          }
+        }),
+    );
+    mount.querySelectorAll('[data-goto]').forEach(b => (b.onclick = () => selectRecipe(b.dataset.goto)));
+    mount.querySelectorAll('[data-order]').forEach(b => (b.onclick = () => orderDialog(findRecipe(b.dataset.order))));
+  };
+  const paintList = () => {
+    const items = listed();
+    const grid = mount.querySelector('.fridge-list');
+    if (!grid) {
+      draw();
+      return;
+    }
+    const q = (state.q || '').trim();
+    grid.innerHTML =
+      items.map(rowHtml).join('') ||
+      `<div class="empty" style="grid-column:1/-1"><div>${ico('fridge')}</div><h3>${q ? '没有匹配的记录' : '这里还没有记录'}</h3><p>${q ? '换个关键词试试。' : '点右上角「添加」。'}</p></div>`;
+    bindRows();
+  };
+  const draw = () => {
+    const exp = expiringItems(),
+      low = lowPantry();
+    const match = state.matchIds.length ? matchRecipes(state.matchIds) : null;
+    mount.innerHTML = `<section class="intro"><div><div class="eyebrow">INSIDE THE FRIDGE</div><h1>冰箱里有什么？</h1><p>记录库存、保质期，快过期会提醒；零食速食单独放，猫狗能不能吃也标出来。</p></div><div class="detail-tools"><button class="text-button" id="manage-cats">${ico('settings', 15)} 分类</button><button class="primary" id="add-food">${ico('plus')} 添加</button></div></section>${
+      exp.length
+        ? `<div class="warn-banner">${ico('bell', 18)}<div><strong>${exp.length} 项临期或已过期</strong><span>${exp
+            .slice(0, 3)
+            .map(p => {
+              const left = expiryLeft(p.expiryDate);
+              return `${esc(p.name)}（${esc(left?.label || '临期')}）`;
+            })
+            .join('、')}${exp.length > 3 ? ' 等' : ''}</span></div></div>`
+        : ''
+    }<div class="collection-bar with-venues"><div class="type-tabs" role="tablist">${FRIDGE_KINDS.map(([k, lb]) => `<button data-kind="${k}" class="${state.kind === k ? 'chosen' : ''}">${lb}</button>`).join('')}</div><div class="filters" style="margin:0">${EXPIRY_FILTERS.map(([f, label]) => `<button data-exp="${f}" class="filter ${state.filter === f ? 'chosen' : ''}">${label}</button>`).join('')}</div><label class="search">${ico('search', 15)}<input id="f-search" placeholder="搜索名称、品牌、分类…" value="${esc(state.q || '')}" aria-label="搜索冰箱"><kbd>⌕</kbd></label></div><div class="filters" style="margin:14px 0 16px">${['全部', ...fridgeCatsOf(state.kind)].map(c => `<button data-fcat="${esc(c)}" class="filter ${state.cat === c ? 'chosen' : ''}">${esc(c)}</button>`).join('')}<button class="filter manage" id="fcat-edit">${ico('settings', 13)} 编辑分类</button></div><div class="fridge-list"></div>${low.length ? `<p class="muted">低库存提醒：${low.map(p => esc(p.name)).join('、')}</p>` : ''}<div class="match-panel">${state.matchIds.length ? `<div class="collection-bar"><div class="collection-title"><h2>用所选食材做菜</h2><span>已选 ${state.matchIds.length} 种 · 点食材行左侧按钮增减</span></div></div>${match.all.length ? `<h3 class="match-title">同时包含全部所选</h3><div class="cards">${match.all.map(x => matchCard(x.r, x.hit)).join('')}</div>` : ''}${match.some.length ? `<h3 class="match-title">包含其中部分</h3><div class="cards">${match.some.map(x => matchCard(x.r, x.hit)).join('')}</div>` : ''}${!match.all.length && !match.some.length ? '<p class="muted">所选食材暂时匹配不到菜谱，先去「菜谱」里记录一道吧。</p>' : ''}` : ''}</div>`;
+    (mount.querySelector('#manage-cats') ?? document.createElement('button')).onclick = () => openSettings();
+    (mount.querySelector('#add-food') ?? document.createElement('button')).onclick = () => foodDialog(null);
+    mount.querySelectorAll('[data-kind]').forEach(
+      b =>
+        (b.onclick = () => {
+          state.kind = b.dataset.kind;
+          state.cat = '全部';
+          state.q = '';
+          renderFridge(V());
+        }),
+    );
+    mount.querySelectorAll('[data-exp]').forEach(
+      b =>
+        (b.onclick = () => {
+          state.filter = b.dataset.exp;
+          renderFridge(V());
+        }),
+    );
+    mount.querySelectorAll('[data-fcat]').forEach(
+      b =>
+        (b.onclick = () => {
+          state.cat = b.dataset.fcat;
+          renderFridge(V());
+        }),
+    );
+    (mount.querySelector('#fcat-edit') ?? document.createElement('button')).onclick = () => openSettings();
+    (mount.querySelector('#f-search') ?? document.createElement('input')).oninput = e => {
+      state.q = e.target.value;
+      paintList();
+    };
+    paintList();
+  };
+  draw();
+}
 
-function matchCard(r,hit){return`<article class="recipe-card"><button class="card-main" data-goto="${r.id}"><div class="card-image">${r.image?`<img src="${esc(imgSrc(r.image))}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">`:''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category||'')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(hit.map(p=>p.name).join(' · '))}</p><div class="card-meta"><span>${ico('clock',12)} ${fmtTime(r)}</span>${r.calories?`<span>${ico('flame',12)} ${r.calories} 千卡</span>`:''}</div></div></button><button class="favorite" data-order="${r.id}" aria-label="点菜">${ico('plus',15)}</button></article>`}
-function petBadge(icon,v){if(!v||v==='na')return'';return`<span class="badge pet-${v}">${icon} ${PET[v]}</span>`}
+function matchCard(r, hit) {
+  return `<article class="recipe-card"><button class="card-main" data-goto="${r.id}"><div class="card-image">${r.image ? `<img src="${esc(imgSrc(r.image))}" alt="${esc(r.name)}" loading="lazy" onerror="this.style.display='none'">` : ''}<span class="image-placeholder">${ico('bowl')}</span><span class="category-badge">${esc(r.category || '')}</span></div><div class="card-content"><h3>${esc(r.name)}</h3><p>${esc(hit.map(p => p.name).join(' · '))}</p><div class="card-meta"><span>${ico('clock', 12)} ${fmtTime(r)}</span>${r.calories ? `<span>${ico('flame', 12)} ${r.calories} 千卡</span>` : ''}</div></div></button><button class="favorite" data-order="${r.id}" aria-label="点菜">${ico('plus', 15)}</button></article>`;
+}
+function petBadge(icon, v) {
+  if (!v || v === 'na') return '';
+  return `<span class="badge pet-${v}">${icon} ${PET[v]}</span>`;
+}
 
-export function foodDialog(item){const dlg=document.querySelector('#dialog-root');const isNew=!item;const kind0=item?.kind||renderFridge.state?.kind||'ingredient';
-dlg.innerHTML=`<form id="food-form" class="editor"><div class="modal-heading"><div><span class="eyebrow">STOCK IT UP</span><h2>${isNew?'添加库存':'编辑库存'}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field-row two"><label class="field">类型<select name="kind">${FRIDGE_KINDS.map(([k,lb])=>`<option value="${k}" ${kind0===k?'selected':''}>${lb}</option>`).join('')}</select></label><label class="field">分类<select name="category" id="food-cat">${fridgeCatsOf(kind0).map(c=>`<option ${item?.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label></div><label class="field">名称 <span class="required">*</span><input name="name" required maxlength="40" placeholder="例如：鸡蛋" value="${esc(item?.name||'')}"></label><div class="field-row two"><label class="field">品牌<span class="optional">零食常填</span><input name="brand" maxlength="30" placeholder="例如：周黑鸭" value="${esc(item?.brand||'')}"></label><label class="field">口味<input name="flavor" maxlength="30" placeholder="例如：甜辣" value="${esc(item?.flavor||'')}"></label></div><div class="field-row two"><label class="field">数量<input name="qty" type="number" min="0" step="0.5" value="${item?.qty??1}"></label><label class="field">单位<input name="unit" maxlength="6" value="${esc(item?.unit||'个')}"></label></div><label class="field">低量提醒<input name="lowAt" type="number" min="0" step="0.5" placeholder="低于提醒" value="${item?.lowAt??''}"></label><label class="prep-line"><input type="checkbox" name="outOfStock" ${item&&!pantryInStock(item)?'checked':''}> 无库存（列表保留记录，不计入现有量）</label><div class="field-row two"><label class="field">热量（千卡）<span class="optional">选填</span><input name="calories" type="number" min="0" max="9999" placeholder="例如：180" value="${item?.calories??''}"></label><label class="field">热量单位<span class="optional">可自填</span><input name="calUnit" maxlength="12" placeholder="例如：100g、袋、50g" value="${esc(pantryCalUnit(item?.calUnit)||'')}"></label></div><div class="field-row two"><label class="field">生产日期<input name="prodDate" type="date" value="${esc(item?.prodDate||today())}"></label><label class="field">保质期（天）<input name="shelf" type="number" min="1" max="9999" value="${item?Math.max(1,Math.round((Date.parse(item.expiryDate+'T00:00:00')-Date.parse((item.prodDate||today())+'T00:00:00'))/86400000)):7}"></label></div><div class="field-row two"><label class="field">🐱 猫<select name="petCat">${['na','ok','care','no'].map(v=>`<option value="${v}" ${item?.petCat===v?'selected':''}>${PET[v]}</option>`).join('')}</select></label><label class="field">🐶 狗<select name="petDog">${['na','ok','care','no'].map(v=>`<option value="${v}" ${item?.petDog===v?'selected':''}>${PET[v]}</option>`).join('')}</select></label></div><div class="field-row two"><label class="field">保鲜方法<input name="keep" maxlength="30" placeholder="例如：冷藏密封、冷冻保存" value="${esc(item?.keep||'')}"></label><label class="field">备注<input name="notes" maxlength="80" placeholder="例如：煮熟后可少量喂" value="${esc(item?.notes||'')}"></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-dlg.querySelector('select[name=kind]').onchange=e=>{const catSel=dlg.querySelector('#food-cat');catSel.innerHTML=fridgeCatsOf(e.target.value).map(c=>`<option>${esc(c)}</option>`).join('')};
-const syncStock=()=>{const out=dlg.querySelector('[name=outOfStock]')?.checked;const qty=dlg.querySelector('[name=qty]');if(qty)qty.disabled=!!out};dlg.querySelector('[name=outOfStock]')?.addEventListener('change',syncStock);syncStock();
-(dlg.querySelector('#food-form')??document.createElement('button')).onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const prod=f.get('prodDate')||today();const shelf=Math.max(1,Number(f.get('shelf'))||7);
-const out=f.get('outOfStock')==='on';let qty=Number(f.get('qty'))||0;if(out)qty=0;else if(qty<=0)qty=1;const calRaw=f.get('calories');const calories=calRaw===''||calRaw==null?null:Number(calRaw);const calUnit=pantryCalUnit(f.get('calUnit'))||(Number.isFinite(calories)&&calories>0?'100g':'');
-const next={id:isNew?uid():item.id,name:f.get('name').trim(),kind:f.get('kind'),brand:f.get('brand').trim(),flavor:f.get('flavor').trim(),category:f.get('category'),qty,inStock:!out,unit:f.get('unit').trim()||'个',prodDate:prod,expiryDate:addDays(prod,shelf),lowAt:f.get('lowAt')?Number(f.get('lowAt')):null,petCat:f.get('petCat'),petDog:f.get('petDog'),keep:f.get('keep').trim(),notes:f.get('notes').trim(),calories:Number.isFinite(calories)&&calories>0?calories:null,calUnit};
-update(()=>{if(isNew)S.pantry.unshift(next);else S.pantry=S.pantry.map(x=>x.id===next.id?next:x)});dlg.close();toast('冰箱已更新')}}
+export function foodDialog(item) {
+  const dlg = document.querySelector('#dialog-root');
+  const isNew = !item;
+  const kind0 = item?.kind || renderFridge.state?.kind || 'ingredient';
+  dlg.innerHTML = `<form id="food-form" class="editor"><div class="modal-heading"><div><span class="eyebrow">STOCK IT UP</span><h2>${isNew ? '添加库存' : '编辑库存'}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><div class="field-row two"><label class="field">类型<select name="kind">${FRIDGE_KINDS.map(([k, lb]) => `<option value="${k}" ${kind0 === k ? 'selected' : ''}>${lb}</option>`).join('')}</select></label><label class="field">分类<select name="category" id="food-cat">${fridgeCatsOf(
+    kind0,
+  )
+    .map(c => `<option ${item?.category === c ? 'selected' : ''}>${esc(c)}</option>`)
+    .join(
+      '',
+    )}</select></label></div><label class="field">名称 <span class="required">*</span><input name="name" required maxlength="40" placeholder="例如：鸡蛋" value="${esc(item?.name || '')}"></label><div class="field-row two"><label class="field">品牌<span class="optional">零食常填</span><input name="brand" maxlength="30" placeholder="例如：周黑鸭" value="${esc(item?.brand || '')}"></label><label class="field">口味<input name="flavor" maxlength="30" placeholder="例如：甜辣" value="${esc(item?.flavor || '')}"></label></div><div class="field-row two"><label class="field">数量<input name="qty" type="number" min="0" step="0.5" value="${item?.qty ?? 1}"></label><label class="field">单位<input name="unit" maxlength="6" value="${esc(item?.unit || '个')}"></label></div><label class="field">低量提醒<input name="lowAt" type="number" min="0" step="0.5" placeholder="低于提醒" value="${item?.lowAt ?? ''}"></label><label class="prep-line"><input type="checkbox" name="outOfStock" ${item && !pantryInStock(item) ? 'checked' : ''}> 无库存（列表保留记录，不计入现有量）</label><div class="field-row two"><label class="field">热量（千卡）<span class="optional">选填</span><input name="calories" type="number" min="0" max="9999" placeholder="例如：180" value="${item?.calories ?? ''}"></label><label class="field">热量单位<span class="optional">可自填</span><input name="calUnit" maxlength="12" placeholder="例如：100g、袋、50g" value="${esc(pantryCalUnit(item?.calUnit) || '')}"></label></div><div class="field-row two"><label class="field">生产日期<input name="prodDate" type="date" value="${esc(item?.prodDate || today())}"></label><label class="field">保质期（天）<input name="shelf" type="number" min="1" max="9999" value="${item ? Math.max(1, Math.round((Date.parse(item.expiryDate + 'T00:00:00') - Date.parse((item.prodDate || today()) + 'T00:00:00')) / 86400000)) : 7}"></label></div><div class="field-row two"><label class="field">🐱 猫<select name="petCat">${['na', 'ok', 'care', 'no'].map(v => `<option value="${v}" ${item?.petCat === v ? 'selected' : ''}>${PET[v]}</option>`).join('')}</select></label><label class="field">🐶 狗<select name="petDog">${['na', 'ok', 'care', 'no'].map(v => `<option value="${v}" ${item?.petDog === v ? 'selected' : ''}>${PET[v]}</option>`).join('')}</select></label></div><div class="field-row two"><label class="field">保鲜方法<input name="keep" maxlength="30" placeholder="例如：冷藏密封、冷冻保存" value="${esc(item?.keep || '')}"></label><label class="field">备注<input name="notes" maxlength="80" placeholder="例如：煮熟后可少量喂" value="${esc(item?.notes || '')}"></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;
+  dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  dlg.querySelector('select[name=kind]').onchange = e => {
+    const catSel = dlg.querySelector('#food-cat');
+    catSel.innerHTML = fridgeCatsOf(e.target.value)
+      .map(c => `<option>${esc(c)}</option>`)
+      .join('');
+  };
+  const syncStock = () => {
+    const out = dlg.querySelector('[name=outOfStock]')?.checked;
+    const qty = dlg.querySelector('[name=qty]');
+    if (qty) qty.disabled = !!out;
+  };
+  dlg.querySelector('[name=outOfStock]')?.addEventListener('change', syncStock);
+  syncStock();
+  (dlg.querySelector('#food-form') ?? document.createElement('button')).onsubmit = e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const prod = f.get('prodDate') || today();
+    const shelf = Math.max(1, Number(f.get('shelf')) || 7);
+    const out = f.get('outOfStock') === 'on';
+    let qty = Number(f.get('qty')) || 0;
+    if (out) qty = 0;
+    else if (qty <= 0) qty = 1;
+    const calRaw = f.get('calories');
+    const calories = calRaw === '' || calRaw == null ? null : Number(calRaw);
+    const calUnit = pantryCalUnit(f.get('calUnit')) || (Number.isFinite(calories) && calories > 0 ? '100g' : '');
+    const next = {
+      id: isNew ? uid() : item.id,
+      name: f.get('name').trim(),
+      kind: f.get('kind'),
+      brand: f.get('brand').trim(),
+      flavor: f.get('flavor').trim(),
+      category: f.get('category'),
+      qty,
+      inStock: !out,
+      unit: f.get('unit').trim() || '个',
+      prodDate: prod,
+      expiryDate: addDays(prod, shelf),
+      lowAt: f.get('lowAt') ? Number(f.get('lowAt')) : null,
+      petCat: f.get('petCat'),
+      petDog: f.get('petDog'),
+      keep: f.get('keep').trim(),
+      notes: f.get('notes').trim(),
+      calories: Number.isFinite(calories) && calories > 0 ? calories : null,
+      calUnit,
+    };
+    update(() => {
+      if (isNew) S.pantry.unshift(next);
+      else S.pantry = S.pantry.map(x => (x.id === next.id ? next : x));
+    });
+    dlg.close();
+    toast('冰箱已更新');
+  };
+}
 
 // —— 购买清单：食材 / 日用品两大板块 ——
-function shopQtyUnit(x){if(x.qty!=null&&x.qty!==''||x.unit)return{qty:x.qty??'',unit:x.unit||''};const info=parseAmountInfo(x.amount);return info?{qty:info.num,unit:info.unit||''}:{qty:'',unit:''}}
-function shopAmtText(x){const{qty,unit}=shopQtyUnit(x);const joined=[qty,unit].filter(v=>v!==''&&v!=null).join(qty!==''&&unit?' ':'');return joined||x.amount||''}
-function shopStockQty(x){const{qty,unit}=shopQtyUnit(x);return{qty:Number(qty)||1,unit:unit||'个'}}
-function shopCatsOf(board){if(board==='daily')return[...S.cats.daily];if(board==='other')return[...(S.cats.fridgeOther||['其他'])];return[...S.cats.fridge,...(S.cats.fridgeSnack||[])]}
+function shopQtyUnit(x) {
+  if ((x.qty != null && x.qty !== '') || x.unit) return { qty: x.qty ?? '', unit: x.unit || '' };
+  const info = parseAmountInfo(x.amount);
+  return info ? { qty: info.num, unit: info.unit || '' } : { qty: '', unit: '' };
+}
+function shopAmtText(x) {
+  const { qty, unit } = shopQtyUnit(x);
+  const joined = [qty, unit].filter(v => v !== '' && v != null).join(qty !== '' && unit ? ' ' : '');
+  return joined || x.amount || '';
+}
+function shopStockQty(x) {
+  const { qty, unit } = shopQtyUnit(x);
+  return { qty: Number(qty) || 1, unit: unit || '个' };
+}
+function shopCatsOf(board) {
+  if (board === 'daily') return [...S.cats.daily];
+  if (board === 'other') return [...(S.cats.fridgeOther || ['其他'])];
+  return [...S.cats.fridge, ...(S.cats.fridgeSnack || [])];
+}
 
-export function renderShopping(mount){
-const boards=[['food','食材','从本周和下周菜单生成的缺口'],['daily','日用品','采购时顺手带'],['other','其他','冰箱其他和零碎采购']];
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">SHOPPING LIST</div><h1>还缺什么，一次买齐。</h1><p>按本周 + 下周菜单自动算食材缺口（扣除冰箱已有），日用品低库存顺手加。分类、数量和单位点进编辑改。</p></div><div class="detail-tools"><button class="text-button" id="gen-daily">${ico('bell',15)} 低库存日用品</button><button class="primary" id="gen">${ico('sparkle')} 从菜单生成</button></div></section>${boards.map(([board,label,hint])=>{const items=S.shopping.filter(x=>(x.board||'food')===board).slice().sort((a,b)=>(a.checked?1:0)-(b.checked?1:0));const lowDaily=board==='daily'?S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt)):[];
-return`<section class="shop-board"><div class="collection-bar"><div class="collection-title"><h2>${label}</h2><span>${hint} · ${items.filter(x=>!x.checked).length} 项待买</span></div><div class="detail-tools">${board==='daily'&&lowDaily.length?`<button class="text-button" id="gen-daily-low">${ico('bell',15)} 低库存 ${lowDaily.length}</button>`:''}${items.some(x=>x.checked)?`<button class="primary" id="stockin-${board}" data-stockin="${board}" style="padding:8px 14px">${ico('fridge',15)} 一键入库</button>`:''}</div></div><div class="shop-list">${items.map(x=>{const i=S.shopping.indexOf(x);const amt=shopAmtText(x);return`<div class="shop-row ${x.checked?'checked':''}"><input type="checkbox" data-check="${i}" ${x.checked?'checked':''}><button class="shop-main" data-edit="${i}"><strong>${esc(x.name)}</strong>${amt?`<small>${esc(amt)}</small>`:''}${x.category?`<em>${esc(x.category)}</em>`:''}</button><button class="icon-button" data-del="${i}" aria-label="删除">${ico('close',13)}</button></div>`}).join('')||'<p class="muted" style="padding:14px">这个板块还没有待买项</p>'}</div><div class="shop-add"><input data-addname="${board}" placeholder="手动添加${label}…"><button class="icon-button" data-addbtn="${board}" aria-label="添加">${ico('plus',15)}</button></div></section>`}).join('')}${S.shopping.length?'<button class="text-button" id="clear-done">清空已勾选</button>':''}`;
-(mount.querySelector('#gen')??document.createElement('button')).onclick=()=>{const gen=generateShopping();
-update(()=>{const needNames=new Set(gen.map(g=>g.name));
-S.shopping=S.shopping.filter(x=>(x.board||'food')!=='food'||!x.fromMenu||needNames.has(x.name));
-for(const g of gen)pushToShopping(g.name,g.amount,g.category,'food');
-S.shopping.forEach(x=>{if((x.board||'food')==='food'&&needNames.has(x.name))x.fromMenu=true})});
-const menuBlank=(()=>{for(let i=0;i<14;i++){const d=addDays(today(),i);for(const[m]of MEALS)if(menuItems(d,m).length)return false}return true})();
-toast(menuBlank?'菜单是空的，已清空食材清单':gen.length?`已同步食材清单（当前菜单需要 ${gen.length} 种）`:'菜单食材库存都充足，已清空不需要的记录');renderShopping(V())};
-(mount.querySelector('#gen-daily')??document.createElement('button')).onclick=()=>{const low=S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt));if(!low.length){toast('日用品库存都充足');return}update(()=>low.forEach(d=>pushToShopping(d.name,'',d.category,'daily')));toast(`已把 ${low.length} 项日用品加入清单`);renderShopping(V())};
-mount.querySelector('#gen-daily-low')?.addEventListener('click',()=>{const low=S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt));update(()=>low.forEach(d=>pushToShopping(d.name,'',d.category,'daily')));toast('已加入');renderShopping(V())});
-mount.querySelectorAll('[data-addbtn]').forEach(b=>b.onclick=()=>{const board=b.dataset.addbtn;const n=mount.querySelector(`[data-addname="${board}"]`).value.trim();if(!n)return;update(()=>pushToShopping(n,'','',board));renderShopping(V())});
-mount.querySelectorAll('[data-check]').forEach(cb=>cb.onchange=()=>{update(()=>{S.shopping[Number(cb.dataset.check)].checked=cb.checked});renderShopping(V())});
-mount.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{update(()=>S.shopping.splice(Number(b.dataset.del),1));renderShopping(V())});
-mount.querySelectorAll('[data-stockin]').forEach(b=>b.onclick=()=>{const board=b.dataset.stockin;const idxs=S.shopping.map((x,i)=>({x,i})).filter(({x})=>x.checked&&(x.board||'food')===board);if(!idxs.length){toast('先勾选要入库的项');return}
-update(()=>{for(const{x}of idxs){const{qty,unit}=shopStockQty(x);
-if(board==='daily'){S.daily.unshift({id:uid(),name:x.name,brand:'',category:x.category||'其他',qty,unit,lowAt:null,notes:'购买入库'})}
-else{S.pantry.unshift({id:uid(),name:x.name,kind:board==='other'?'other':'ingredient',brand:'',flavor:'',category:x.category||'其他',qty,unit,inStock:true,prodDate:today(),expiryDate:addDays(today(),7),lowAt:null,petCat:'na',petDog:'na',notes:'购买入库',calories:null,calUnit:'100g'});addPantryHistory(S.pantry[0])}}
-S.shopping=S.shopping.filter((x,i)=>!idxs.some(({i:j})=>j===i))});
-toast(`已入库 ${idxs.length} 项`);renderShopping(V())});
-mount.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editShopping(S.shopping[Number(b.dataset.edit)]));
-mount.querySelector('#clear-done')?.addEventListener('click',()=>{update(()=>{S.shopping=S.shopping.filter(x=>!x.checked)});renderShopping(V())})}
+export function renderShopping(mount) {
+  const boards = [
+    ['food', '食材', '从本周和下周菜单生成的缺口'],
+    ['daily', '日用品', '采购时顺手带'],
+    ['other', '其他', '冰箱其他和零碎采购'],
+  ];
+  mount.innerHTML = `<section class="intro"><div><div class="eyebrow">SHOPPING LIST</div><h1>还缺什么，一次买齐。</h1><p>按本周 + 下周菜单自动算食材缺口（扣除冰箱已有），日用品低库存顺手加。分类、数量和单位点进编辑改。</p></div><div class="detail-tools"><button class="text-button" id="gen-daily">${ico('bell', 15)} 低库存日用品</button><button class="primary" id="gen">${ico('sparkle')} 从菜单生成</button></div></section>${boards
+    .map(([board, label, hint]) => {
+      const items = S.shopping
+        .filter(x => (x.board || 'food') === board)
+        .slice()
+        .sort((a, b) => (a.checked ? 1 : 0) - (b.checked ? 1 : 0));
+      const lowDaily = board === 'daily' ? S.daily.filter(d => d.lowAt && Number(d.qty) <= Number(d.lowAt)) : [];
+      return `<section class="shop-board"><div class="collection-bar"><div class="collection-title"><h2>${label}</h2><span>${hint} · ${items.filter(x => !x.checked).length} 项待买</span></div><div class="detail-tools">${board === 'daily' && lowDaily.length ? `<button class="text-button" id="gen-daily-low">${ico('bell', 15)} 低库存 ${lowDaily.length}</button>` : ''}${items.some(x => x.checked) ? `<button class="primary" id="stockin-${board}" data-stockin="${board}" style="padding:8px 14px">${ico('fridge', 15)} 一键入库</button>` : ''}</div></div><div class="shop-list">${
+        items
+          .map(x => {
+            const i = S.shopping.indexOf(x);
+            const amt = shopAmtText(x);
+            return `<div class="shop-row ${x.checked ? 'checked' : ''}"><input type="checkbox" data-check="${i}" ${x.checked ? 'checked' : ''}><button class="shop-main" data-edit="${i}"><strong>${esc(x.name)}</strong>${amt ? `<small>${esc(amt)}</small>` : ''}${x.category ? `<em>${esc(x.category)}</em>` : ''}</button><button class="icon-button" data-del="${i}" aria-label="删除">${ico('close', 13)}</button></div>`;
+          })
+          .join('') || '<p class="muted" style="padding:14px">这个板块还没有待买项</p>'
+      }</div><div class="shop-add"><input data-addname="${board}" placeholder="手动添加${label}…"><button class="icon-button" data-addbtn="${board}" aria-label="添加">${ico('plus', 15)}</button></div></section>`;
+    })
+    .join('')}${S.shopping.length ? '<button class="text-button" id="clear-done">清空已勾选</button>' : ''}`;
+  (mount.querySelector('#gen') ?? document.createElement('button')).onclick = () => {
+    const gen = generateShopping();
+    update(() => {
+      const needNames = new Set(gen.map(g => g.name));
+      S.shopping = S.shopping.filter(x => (x.board || 'food') !== 'food' || !x.fromMenu || needNames.has(x.name));
+      for (const g of gen) pushToShopping(g.name, g.amount, g.category, 'food');
+      S.shopping.forEach(x => {
+        if ((x.board || 'food') === 'food' && needNames.has(x.name)) x.fromMenu = true;
+      });
+    });
+    const menuBlank = (() => {
+      for (let i = 0; i < 14; i++) {
+        const d = addDays(today(), i);
+        for (const [m] of MEALS) if (menuItems(d, m).length) return false;
+      }
+      return true;
+    })();
+    toast(
+      menuBlank
+        ? '菜单是空的，已清空食材清单'
+        : gen.length
+          ? `已同步食材清单（当前菜单需要 ${gen.length} 种）`
+          : '菜单食材库存都充足，已清空不需要的记录',
+    );
+    renderShopping(V());
+  };
+  (mount.querySelector('#gen-daily') ?? document.createElement('button')).onclick = () => {
+    const low = S.daily.filter(d => d.lowAt && Number(d.qty) <= Number(d.lowAt));
+    if (!low.length) {
+      toast('日用品库存都充足');
+      return;
+    }
+    update(() => low.forEach(d => pushToShopping(d.name, '', d.category, 'daily')));
+    toast(`已把 ${low.length} 项日用品加入清单`);
+    renderShopping(V());
+  };
+  mount.querySelector('#gen-daily-low')?.addEventListener('click', () => {
+    const low = S.daily.filter(d => d.lowAt && Number(d.qty) <= Number(d.lowAt));
+    update(() => low.forEach(d => pushToShopping(d.name, '', d.category, 'daily')));
+    toast('已加入');
+    renderShopping(V());
+  });
+  mount.querySelectorAll('[data-addbtn]').forEach(
+    b =>
+      (b.onclick = () => {
+        const board = b.dataset.addbtn;
+        const n = mount.querySelector(`[data-addname="${board}"]`).value.trim();
+        if (!n) return;
+        update(() => pushToShopping(n, '', '', board));
+        renderShopping(V());
+      }),
+  );
+  mount.querySelectorAll('[data-check]').forEach(
+    cb =>
+      (cb.onchange = () => {
+        update(() => {
+          S.shopping[Number(cb.dataset.check)].checked = cb.checked;
+        });
+        renderShopping(V());
+      }),
+  );
+  mount.querySelectorAll('[data-del]').forEach(
+    b =>
+      (b.onclick = () => {
+        update(() => S.shopping.splice(Number(b.dataset.del), 1));
+        renderShopping(V());
+      }),
+  );
+  mount.querySelectorAll('[data-stockin]').forEach(
+    b =>
+      (b.onclick = () => {
+        const board = b.dataset.stockin;
+        const idxs = S.shopping.map((x, i) => ({ x, i })).filter(({ x }) => x.checked && (x.board || 'food') === board);
+        if (!idxs.length) {
+          toast('先勾选要入库的项');
+          return;
+        }
+        update(() => {
+          for (const { x } of idxs) {
+            const { qty, unit } = shopStockQty(x);
+            if (board === 'daily') {
+              S.daily.unshift({
+                id: uid(),
+                name: x.name,
+                brand: '',
+                category: x.category || '其他',
+                qty,
+                unit,
+                lowAt: null,
+                notes: '购买入库',
+              });
+            } else {
+              S.pantry.unshift({
+                id: uid(),
+                name: x.name,
+                kind: board === 'other' ? 'other' : 'ingredient',
+                brand: '',
+                flavor: '',
+                category: x.category || '其他',
+                qty,
+                unit,
+                inStock: true,
+                prodDate: today(),
+                expiryDate: addDays(today(), 7),
+                lowAt: null,
+                petCat: 'na',
+                petDog: 'na',
+                notes: '购买入库',
+                calories: null,
+                calUnit: '100g',
+              });
+              addPantryHistory(S.pantry[0]);
+            }
+          }
+          S.shopping = S.shopping.filter((x, i) => !idxs.some(({ i: j }) => j === i));
+        });
+        toast(`已入库 ${idxs.length} 项`);
+        renderShopping(V());
+      }),
+  );
+  mount
+    .querySelectorAll('[data-edit]')
+    .forEach(b => (b.onclick = () => editShopping(S.shopping[Number(b.dataset.edit)])));
+  mount.querySelector('#clear-done')?.addEventListener('click', () => {
+    update(() => {
+      S.shopping = S.shopping.filter(x => !x.checked);
+    });
+    renderShopping(V());
+  });
+}
 
-function editShopping(x){const dlg=document.querySelector('#dialog-root');const{qty,unit}=shopQtyUnit(x);
-const fillCats=(board,selected)=>{const sel=dlg.querySelector('[name=category]');if(!sel)return;const cats=shopCatsOf(board);const cur=selected&&cats.includes(selected)?selected:'';sel.innerHTML=`<option value="">未分类</option>`+cats.map(c=>`<option value="${esc(c)}" ${c===cur?'selected':''}>${esc(c)}</option>`).join('')};
-dlg.innerHTML=`<form class="editor" id="shop-form"><div class="modal-heading"><div><span class="eyebrow">SHOPPING LIST</span><h2>编辑清单项</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><label class="field">名称<input name="name" required maxlength="40" value="${esc(x.name)}"></label><div class="field-row two"><label class="field">数量<input name="qty" type="number" min="0" step="0.5" placeholder="例如：2" value="${qty}"></label><label class="field">单位<input name="unit" maxlength="8" placeholder="例如：个、袋" value="${esc(unit)}"></label></div><div class="field-row two"><label class="field">分类<select name="category"></select></label><label class="field">板块<select name="board"><option value="food" ${(x.board||'food')==='food'?'selected':''}>食材</option><option value="daily" ${x.board==='daily'?'selected':''}>日用品</option><option value="other" ${x.board==='other'?'selected':''}>其他</option></select></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-const syncBoard=()=>fillCats(dlg.querySelector('[name=board]')?.value||'food',x.category);
-dlg.querySelector('[name=board]')?.addEventListener('change',()=>fillCats(dlg.querySelector('[name=board]').value,''));
-syncBoard();
-(dlg.querySelector('#shop-form')??document.createElement('button')).onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const qRaw=f.get('qty');const q=qRaw===''||qRaw==null?null:Number(qRaw);const u=f.get('unit').trim();const amount=[q!=null&&Number.isFinite(q)?q:'',u].filter(v=>v!==''&&v!=null).join(q!=null&&u?' ':'');update(()=>{x.name=f.get('name').trim()||x.name;x.qty=q!=null&&Number.isFinite(q)?q:null;x.unit=u;x.amount=amount||x.amount||'';x.category=f.get('category');x.board=f.get('board')});dlg.close();renderShopping(V())}}
+function editShopping(x) {
+  const dlg = document.querySelector('#dialog-root');
+  const { qty, unit } = shopQtyUnit(x);
+  const fillCats = (board, selected) => {
+    const sel = dlg.querySelector('[name=category]');
+    if (!sel) return;
+    const cats = shopCatsOf(board);
+    const cur = selected && cats.includes(selected) ? selected : '';
+    sel.innerHTML =
+      `<option value="">未分类</option>` +
+      cats.map(c => `<option value="${esc(c)}" ${c === cur ? 'selected' : ''}>${esc(c)}</option>`).join('');
+  };
+  dlg.innerHTML = `<form class="editor" id="shop-form"><div class="modal-heading"><div><span class="eyebrow">SHOPPING LIST</span><h2>编辑清单项</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><label class="field">名称<input name="name" required maxlength="40" value="${esc(x.name)}"></label><div class="field-row two"><label class="field">数量<input name="qty" type="number" min="0" step="0.5" placeholder="例如：2" value="${qty}"></label><label class="field">单位<input name="unit" maxlength="8" placeholder="例如：个、袋" value="${esc(unit)}"></label></div><div class="field-row two"><label class="field">分类<select name="category"></select></label><label class="field">板块<select name="board"><option value="food" ${(x.board || 'food') === 'food' ? 'selected' : ''}>食材</option><option value="daily" ${x.board === 'daily' ? 'selected' : ''}>日用品</option><option value="other" ${x.board === 'other' ? 'selected' : ''}>其他</option></select></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;
+  dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  const syncBoard = () => fillCats(dlg.querySelector('[name=board]')?.value || 'food', x.category);
+  dlg
+    .querySelector('[name=board]')
+    ?.addEventListener('change', () => fillCats(dlg.querySelector('[name=board]').value, ''));
+  syncBoard();
+  (dlg.querySelector('#shop-form') ?? document.createElement('button')).onsubmit = e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const qRaw = f.get('qty');
+    const q = qRaw === '' || qRaw == null ? null : Number(qRaw);
+    const u = f.get('unit').trim();
+    const amount = [q != null && Number.isFinite(q) ? q : '', u]
+      .filter(v => v !== '' && v != null)
+      .join(q != null && u ? ' ' : '');
+    update(() => {
+      x.name = f.get('name').trim() || x.name;
+      x.qty = q != null && Number.isFinite(q) ? q : null;
+      x.unit = u;
+      x.amount = amount || x.amount || '';
+      x.category = f.get('category');
+      x.board = f.get('board');
+    });
+    dlg.close();
+    renderShopping(V());
+  };
+}
 
 // —— 日用品库存 ——
-export function renderDaily(mount){renderDaily.cat=renderDaily.cat||'全部';const low=S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt));
-const shown=S.daily.filter(d=>renderDaily.cat==='全部'||d.category===renderDaily.cat).slice().sort((a,b)=>(a.lowAt&&Number(a.qty)<=Number(a.lowAt)?0:1)-(b.lowAt&&Number(b.qty)<=Number(b.lowAt)?0:1));
-mount.innerHTML=`<section class="intro"><div><div class="eyebrow">HOUSEHOLD SUPPLIES</div><h1>日用品还够用吗？</h1><p>洗衣液、厨房纸这些也记库存；快用完加入购买清单，采购时顺手带。</p></div><div class="detail-tools">${low.length?`<button class="text-button" id="daily-low">${ico('bell',15)} 低库存 ${low.length}</button>`:''}<button class="text-button" id="manage-cats">${ico('settings',15)} 分类</button><button class="primary" id="add-daily">${ico('plus')} 添加</button></div></section><div class="filters">${['全部',...S.cats.daily].map(c=>`<button data-dcat="${esc(c)}" class="filter ${renderDaily.cat===c?'chosen':''}">${esc(c)}</button>`).join('')}<button class="filter manage" id="dcat-edit">${ico('settings',13)} 编辑分类</button></div><div class="daily-grid">${shown.map(d=>{const lowBadge=d.lowAt&&Number(d.qty)<=Number(d.lowAt);return`<div class="daily-card"><div class="daily-top"><strong>${esc(d.name)}</strong>${lowBadge?'<span class="badge low">余量不足</span>':''}</div><span class="food-meta">${esc([d.brand,d.category,d.notes].filter(Boolean).join(' · '))||' '}</span><div class="food-qty"><button class="qty-btn" data-deduct="${d.id}" aria-label="减少">−</button><strong>${esc(d.qty)}</strong><small>${esc(d.unit)}</small><button class="qty-btn" data-restock="${d.id}" aria-label="增加">＋</button></div><div class="daily-actions"><button class="text-button" data-shop="${d.id}">${ico('cart',13)} 加清单</button><button class="icon-button" data-edit="${d.id}" aria-label="编辑">${ico('edit',15)}</button><button class="icon-button" data-del="${d.id}" aria-label="删除">${ico('trash',15)}</button></div></div>`}).join('')||`<div class="empty" style="grid-column:1/-1"><div>${ico('cart')}</div><h3>还没有日用品</h3><p>点右上角「添加」，记录第一件。</p></div>`}</div>${low.length?`<p class="muted">低库存：${low.map(d=>esc(d.name)).join('、')}</p>`:''}`;
-(mount.querySelector('#manage-cats')??document.createElement('button')).onclick=()=>openSettings();
-(mount.querySelector('#dcat-edit')??document.createElement('button')).onclick=()=>openSettings();
-(mount.querySelector('#add-daily')??document.createElement('button')).onclick=()=>dailyDialog(null);
-mount.querySelector('#daily-low')?.addEventListener('click',()=>{update(()=>low.forEach(d=>pushToShopping(d.name,'',d.category,'daily')));toast('低库存日用品已加入购买清单')});
-mount.querySelectorAll('[data-dcat]').forEach(b=>b.onclick=()=>{renderDaily.cat=b.dataset.dcat;renderDaily(V())});
-mount.querySelectorAll('[data-deduct]').forEach(b=>b.onclick=()=>{update(()=>{const d=S.daily.find(x=>x.id===b.dataset.deduct);d.qty=Math.max(0,(Number(d.qty)||0)-1)});renderDaily(V())});
-mount.querySelectorAll('[data-restock]').forEach(b=>b.onclick=()=>{update(()=>{const d=S.daily.find(x=>x.id===b.dataset.restock);d.qty=(Number(d.qty)||0)+1});renderDaily(V())});
-mount.querySelectorAll('[data-shop]').forEach(b=>b.onclick=()=>addToShopDialog(S.daily.find(x=>x.id===b.dataset.shop),'daily'));
-mount.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>dailyDialog(S.daily.find(x=>x.id===b.dataset.edit)));
-mount.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(window.confirm('确定删除？')){update(()=>S.daily=S.daily.filter(x=>x.id!==b.dataset.del));renderDaily(V())}})}
+export function renderDaily(mount) {
+  renderDaily.cat = renderDaily.cat || '全部';
+  const low = S.daily.filter(d => d.lowAt && Number(d.qty) <= Number(d.lowAt));
+  const shown = S.daily
+    .filter(d => renderDaily.cat === '全部' || d.category === renderDaily.cat)
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.lowAt && Number(a.qty) <= Number(a.lowAt) ? 0 : 1) - (b.lowAt && Number(b.qty) <= Number(b.lowAt) ? 0 : 1),
+    );
+  mount.innerHTML = `<section class="intro"><div><div class="eyebrow">HOUSEHOLD SUPPLIES</div><h1>日用品还够用吗？</h1><p>洗衣液、厨房纸这些也记库存；快用完加入购买清单，采购时顺手带。</p></div><div class="detail-tools">${low.length ? `<button class="text-button" id="daily-low">${ico('bell', 15)} 低库存 ${low.length}</button>` : ''}<button class="text-button" id="manage-cats">${ico('settings', 15)} 分类</button><button class="primary" id="add-daily">${ico('plus')} 添加</button></div></section><div class="filters">${['全部', ...S.cats.daily].map(c => `<button data-dcat="${esc(c)}" class="filter ${renderDaily.cat === c ? 'chosen' : ''}">${esc(c)}</button>`).join('')}<button class="filter manage" id="dcat-edit">${ico('settings', 13)} 编辑分类</button></div><div class="daily-grid">${
+    shown
+      .map(d => {
+        const lowBadge = d.lowAt && Number(d.qty) <= Number(d.lowAt);
+        return `<div class="daily-card"><div class="daily-top"><strong>${esc(d.name)}</strong>${lowBadge ? '<span class="badge low">余量不足</span>' : ''}</div><span class="food-meta">${esc([d.brand, d.category, d.notes].filter(Boolean).join(' · ')) || ' '}</span><div class="food-qty"><button class="qty-btn" data-deduct="${d.id}" aria-label="减少">−</button><strong>${esc(d.qty)}</strong><small>${esc(d.unit)}</small><button class="qty-btn" data-restock="${d.id}" aria-label="增加">＋</button></div><div class="daily-actions"><button class="text-button" data-shop="${d.id}">${ico('cart', 13)} 加清单</button><button class="icon-button" data-edit="${d.id}" aria-label="编辑">${ico('edit', 15)}</button><button class="icon-button" data-del="${d.id}" aria-label="删除">${ico('trash', 15)}</button></div></div>`;
+      })
+      .join('') ||
+    `<div class="empty" style="grid-column:1/-1"><div>${ico('cart')}</div><h3>还没有日用品</h3><p>点右上角「添加」，记录第一件。</p></div>`
+  }</div>${low.length ? `<p class="muted">低库存：${low.map(d => esc(d.name)).join('、')}</p>` : ''}`;
+  (mount.querySelector('#manage-cats') ?? document.createElement('button')).onclick = () => openSettings();
+  (mount.querySelector('#dcat-edit') ?? document.createElement('button')).onclick = () => openSettings();
+  (mount.querySelector('#add-daily') ?? document.createElement('button')).onclick = () => dailyDialog(null);
+  mount.querySelector('#daily-low')?.addEventListener('click', () => {
+    update(() => low.forEach(d => pushToShopping(d.name, '', d.category, 'daily')));
+    toast('低库存日用品已加入购买清单');
+  });
+  mount.querySelectorAll('[data-dcat]').forEach(
+    b =>
+      (b.onclick = () => {
+        renderDaily.cat = b.dataset.dcat;
+        renderDaily(V());
+      }),
+  );
+  mount.querySelectorAll('[data-deduct]').forEach(
+    b =>
+      (b.onclick = () => {
+        update(() => {
+          const d = S.daily.find(x => x.id === b.dataset.deduct);
+          d.qty = Math.max(0, (Number(d.qty) || 0) - 1);
+        });
+        renderDaily(V());
+      }),
+  );
+  mount.querySelectorAll('[data-restock]').forEach(
+    b =>
+      (b.onclick = () => {
+        update(() => {
+          const d = S.daily.find(x => x.id === b.dataset.restock);
+          d.qty = (Number(d.qty) || 0) + 1;
+        });
+        renderDaily(V());
+      }),
+  );
+  mount.querySelectorAll('[data-shop]').forEach(
+    b =>
+      (b.onclick = () =>
+        addToShopDialog(
+          S.daily.find(x => x.id === b.dataset.shop),
+          'daily',
+        )),
+  );
+  mount
+    .querySelectorAll('[data-edit]')
+    .forEach(b => (b.onclick = () => dailyDialog(S.daily.find(x => x.id === b.dataset.edit))));
+  mount.querySelectorAll('[data-del]').forEach(
+    b =>
+      (b.onclick = () => {
+        if (window.confirm('确定删除？')) {
+          update(() => (S.daily = S.daily.filter(x => x.id !== b.dataset.del)));
+          renderDaily(V());
+        }
+      }),
+  );
+}
 
-function addToShopDialog(item,board){if(!item)return;const dlg=document.querySelector('#dialog-root');const fallback=board==='daily'?'件':'个';
-dlg.innerHTML=`<form class="editor" id="add-shop-form"><div class="modal-heading"><div><span class="eyebrow">SHOPPING LIST</span><h2>加入购买清单</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p class="muted" style="margin:0 0 16px">「${esc(item.name)}」要买多少？</p><div class="field-row two"><label class="field">数量<input name="qty" type="number" min="0" step="0.5" required value="1"></label><label class="field">单位<input name="unit" maxlength="8" value="${esc(item.unit||fallback)}"></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 加入</button></div></div></form>`;dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-(dlg.querySelector('#add-shop-form')??document.createElement('button')).onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const qty=Number(f.get('qty'));const unit=f.get('unit').trim()||item.unit||fallback;if(!Number.isFinite(qty)||qty<=0){toast('请填写数量');return}const amount=`${qty}${unit?' '+unit:''}`;const existed=S.shopping.some(s=>s.name===item.name&&(s.board||'food')===board);update(()=>pushToShopping(item.name,amount,item.category||'',board,{qty,unit}));dlg.close();toast(existed?`已更新「${item.name}」为 ${amount}`:`「${item.name}」${amount} 已加入购买清单`)}}
+function addToShopDialog(item, board) {
+  if (!item) return;
+  const dlg = document.querySelector('#dialog-root');
+  const fallback = board === 'daily' ? '件' : '个';
+  dlg.innerHTML = `<form class="editor" id="add-shop-form"><div class="modal-heading"><div><span class="eyebrow">SHOPPING LIST</span><h2>加入购买清单</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><p class="muted" style="margin:0 0 16px">「${esc(item.name)}」要买多少？</p><div class="field-row two"><label class="field">数量<input name="qty" type="number" min="0" step="0.5" required value="1"></label><label class="field">单位<input name="unit" maxlength="8" value="${esc(item.unit || fallback)}"></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 加入</button></div></div></form>`;
+  dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  (dlg.querySelector('#add-shop-form') ?? document.createElement('button')).onsubmit = e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const qty = Number(f.get('qty'));
+    const unit = f.get('unit').trim() || item.unit || fallback;
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast('请填写数量');
+      return;
+    }
+    const amount = `${qty}${unit ? ' ' + unit : ''}`;
+    const existed = S.shopping.some(s => s.name === item.name && (s.board || 'food') === board);
+    update(() => pushToShopping(item.name, amount, item.category || '', board, { qty, unit }));
+    dlg.close();
+    toast(existed ? `已更新「${item.name}」为 ${amount}` : `「${item.name}」${amount} 已加入购买清单`);
+  };
+}
 
-function dailyDialog(d){const dlg=document.querySelector('#dialog-root');const isNew=!d;
-dlg.innerHTML=`<form class="editor" id="daily-form"><div class="modal-heading"><div><span class="eyebrow">HOUSEHOLD SUPPLIES</span><h2>${isNew?'添加日用品':'编辑日用品'}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><label class="field">名称 <span class="required">*</span><input name="name" required maxlength="40" placeholder="例如：洗衣液" value="${esc(d?.name||'')}"></label><div class="field-row"><label class="field">品牌<input name="brand" maxlength="30" placeholder="例如：蓝月亮" value="${esc(d?.brand||'')}"></label><label class="field">分类<select name="category">${S.cats.daily.map(c=>`<option ${d?.category===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label><label class="field">数量<input name="qty" type="number" min="0" step="0.5" value="${d?.qty??1}"></label><label class="field">单位<input name="unit" maxlength="6" value="${esc(d?.unit||'件')}"></label></div><div class="field-row"><label class="field">低量提醒<input name="lowAt" type="number" min="0" step="0.5" placeholder="低于提醒" value="${d?.lowAt??''}"></label><label class="field">备注<input name="notes" maxlength="60" value="${esc(d?.notes||'')}"></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;dlg.showModal();
-dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-(dlg.querySelector('#daily-form')??document.createElement('button')).onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const next={id:isNew?uid():d.id,name:f.get('name').trim(),brand:f.get('brand').trim(),category:f.get('category'),qty:Number(f.get('qty'))||0,unit:f.get('unit').trim()||'件',lowAt:f.get('lowAt')?Number(f.get('lowAt')):null,notes:f.get('notes').trim()};if(!next.name){toast('请填写名称');return}update(()=>{if(isNew)S.daily.unshift(next);else S.daily=S.daily.map(x=>x.id===next.id?next:x)});dlg.close();toast('已保存')}}
+function dailyDialog(d) {
+  const dlg = document.querySelector('#dialog-root');
+  const isNew = !d;
+  dlg.innerHTML = `<form class="editor" id="daily-form"><div class="modal-heading"><div><span class="eyebrow">HOUSEHOLD SUPPLIES</span><h2>${isNew ? '添加日用品' : '编辑日用品'}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content"><label class="field">名称 <span class="required">*</span><input name="name" required maxlength="40" placeholder="例如：洗衣液" value="${esc(d?.name || '')}"></label><div class="field-row"><label class="field">品牌<input name="brand" maxlength="30" placeholder="例如：蓝月亮" value="${esc(d?.brand || '')}"></label><label class="field">分类<select name="category">${S.cats.daily.map(c => `<option ${d?.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label><label class="field">数量<input name="qty" type="number" min="0" step="0.5" value="${d?.qty ?? 1}"></label><label class="field">单位<input name="unit" maxlength="6" value="${esc(d?.unit || '件')}"></label></div><div class="field-row"><label class="field">低量提醒<input name="lowAt" type="number" min="0" step="0.5" placeholder="低于提醒" value="${d?.lowAt ?? ''}"></label><label class="field">备注<input name="notes" maxlength="60" value="${esc(d?.notes || '')}"></label></div></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="submit" class="primary">${ico('check')} 保存</button></div></div></form>`;
+  dlg.showModal();
+  dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => dlg.close()));
+  (dlg.querySelector('#daily-form') ?? document.createElement('button')).onsubmit = e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const next = {
+      id: isNew ? uid() : d.id,
+      name: f.get('name').trim(),
+      brand: f.get('brand').trim(),
+      category: f.get('category'),
+      qty: Number(f.get('qty')) || 0,
+      unit: f.get('unit').trim() || '件',
+      lowAt: f.get('lowAt') ? Number(f.get('lowAt')) : null,
+      notes: f.get('notes').trim(),
+    };
+    if (!next.name) {
+      toast('请填写名称');
+      return;
+    }
+    update(() => {
+      if (isNew) S.daily.unshift(next);
+      else S.daily = S.daily.map(x => (x.id === next.id ? next : x));
+    });
+    dlg.close();
+    toast('已保存');
+  };
+}
 
 // —— 通知：临期 + 前一天 18:00 备菜提醒 ——
-export function notifyExpiring(){const items=expiringItems();if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'&&S.settings.lastNotify!==today()){try{new Notification('饭Fun · 冰箱提醒',{body:items.slice(0,3).map(p=>`${p.name}${daysUntil(p.expiryDate)<0?'已过期':daysUntil(p.expiryDate)===0?'今天到期':`还剩${daysUntil(p.expiryDate)}天`}`).join('、')+(items.length>3?' 等':'')});update(()=>S.settings.lastNotify=today())}catch{}}}
+export function notifyExpiring() {
+  const items = expiringItems();
+  if (!items.length) return;
+  if ('Notification' in window && Notification.permission === 'granted' && S.settings.lastNotify !== today()) {
+    try {
+      new Notification('饭Fun · 冰箱提醒', {
+        body:
+          items
+            .slice(0, 3)
+            .map(
+              p =>
+                `${p.name}${daysUntil(p.expiryDate) < 0 ? '已过期' : daysUntil(p.expiryDate) === 0 ? '今天到期' : `还剩${daysUntil(p.expiryDate)}天`}`,
+            )
+            .join('、') + (items.length > 3 ? ' 等' : ''),
+      });
+      update(() => (S.settings.lastNotify = today()));
+    } catch {}
+  }
+}
 // 每天 18:00 综合检查：明天备菜 + 临期食材 + 低库存日用品，一条通知汇总
-export function dailyReminderCheck(){if(new Date().getHours()<18||S.settings.lastDailyNotify===today())return;
-const prep=prepItemsFor(addDays(today(),1));const defrost=defrostItemsFor(addDays(today(),1));const exp=expiringItems();const low=S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt));
-if(!prep.length&&!defrost.length&&!exp.length&&!low.length)return;
-if('Notification'in window&&Notification.permission==='granted'){const parts=[];
-if(defrost.length)parts.push(`明天需解冻：${defrost.slice(0,2).map(x=>x.item.name).join('、')}`);
-if(prep.length)parts.push(`明天需提前准备：${prep.slice(0,2).map(x=>x.item.name).join('、')}`);
-if(exp.length)parts.push(`临期食材：${exp.slice(0,2).map(p=>p.name).join('、')}`);
-if(low.length)parts.push(`日用品不足：${low.slice(0,2).map(d=>d.name).join('、')}`);
-try{new Notification('饭Fun · 18点提醒',{body:parts.join('；')});update(()=>S.settings.lastDailyNotify=today())}catch{}}}
+export function dailyReminderCheck() {
+  if (new Date().getHours() < 18 || S.settings.lastDailyNotify === today()) return;
+  const prep = prepItemsFor(addDays(today(), 1));
+  const defrost = defrostItemsFor(addDays(today(), 1));
+  const exp = expiringItems();
+  const low = S.daily.filter(d => d.lowAt && Number(d.qty) <= Number(d.lowAt));
+  if (!prep.length && !defrost.length && !exp.length && !low.length) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    const parts = [];
+    if (defrost.length)
+      parts.push(
+        `明天需解冻：${defrost
+          .slice(0, 2)
+          .map(x => x.item.name)
+          .join('、')}`,
+      );
+    if (prep.length)
+      parts.push(
+        `明天需提前准备：${prep
+          .slice(0, 2)
+          .map(x => x.item.name)
+          .join('、')}`,
+      );
+    if (exp.length)
+      parts.push(
+        `临期食材：${exp
+          .slice(0, 2)
+          .map(p => p.name)
+          .join('、')}`,
+      );
+    if (low.length)
+      parts.push(
+        `日用品不足：${low
+          .slice(0, 2)
+          .map(d => d.name)
+          .join('、')}`,
+      );
+    try {
+      new Notification('饭Fun · 18点提醒', { body: parts.join('；') });
+      update(() => (S.settings.lastDailyNotify = today()));
+    } catch {}
+  }
+}
 // 当天早上 7 点起推送解冻提醒（每天一次）
-export function morningDefrostCheck(){const h=new Date().getHours();if(h<7||h>=18||S.settings.lastMorningNotify===today())return;
-const items=defrostItemsFor(today());if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'){try{new Notification('饭Fun · 解冻提醒',{body:`今天要做：${items.slice(0,3).map(x=>`${x.item.name}×${x.item.qty||1}`).join('、')}，记得提前解冻`});update(()=>S.settings.lastMorningNotify=today())}catch{}}}
-export function reminderLists(){return{prep:prepUpcoming(7),exp:expiringItems(),low:S.daily.filter(d=>d.lowAt&&Number(d.qty)<=Number(d.lowAt))}}
-export function notifyPrep(){if(new Date().getHours()<18||S.settings.lastPrepNotify===today())return;
-const tmr=addDays(today(),1);const items=prepItemsFor(tmr);if(!items.length)return;
-if('Notification'in window&&Notification.permission==='granted'){try{new Notification('饭Fun · 备菜提醒',{body:`明天${items.slice(0,3).map(x=>`${x.item.name}×${x.item.qty||1}`).join('、')}有需要提前准备的步骤`});update(()=>S.settings.lastPrepNotify=today())}catch{}}}
-export function requestNotify(){try{if('Notification'in window&&Notification.permission==='default')Notification.requestPermission()}catch{}}
+export function morningDefrostCheck() {
+  const h = new Date().getHours();
+  if (h < 7 || h >= 18 || S.settings.lastMorningNotify === today()) return;
+  const items = defrostItemsFor(today());
+  if (!items.length) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('饭Fun · 解冻提醒', {
+        body: `今天要做：${items
+          .slice(0, 3)
+          .map(x => `${x.item.name}×${x.item.qty || 1}`)
+          .join('、')}，记得提前解冻`,
+      });
+      update(() => (S.settings.lastMorningNotify = today()));
+    } catch {}
+  }
+}
+export function reminderLists() {
+  return {
+    prep: prepUpcoming(7),
+    exp: expiringItems(),
+    low: S.daily.filter(d => d.lowAt && Number(d.qty) <= Number(d.lowAt)),
+  };
+}
+export function notifyPrep() {
+  if (new Date().getHours() < 18 || S.settings.lastPrepNotify === today()) return;
+  const tmr = addDays(today(), 1);
+  const items = prepItemsFor(tmr);
+  if (!items.length) return;
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('饭Fun · 备菜提醒', {
+        body: `明天${items
+          .slice(0, 3)
+          .map(x => `${x.item.name}×${x.item.qty || 1}`)
+          .join('、')}有需要提前准备的步骤`,
+      });
+      update(() => (S.settings.lastPrepNotify = today()));
+    } catch {}
+  }
+}
+export function requestNotify() {
+  try {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  } catch {}
+}

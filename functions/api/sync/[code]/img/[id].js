@@ -7,7 +7,11 @@ const CORS = {
 };
 const validCode = code => /^[a-z0-9-]{8,48}$/.test(String(code || ''));
 const validId = id => /^[a-z0-9-]{8,64}$/i.test(String(id || ''));
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS } });
+const json = (body, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
+  });
 const r2key = (code, id) => `${code}/${id}`;
 const kvkey = (code, id) => 'sync:' + code + ':img:' + id;
 
@@ -16,7 +20,9 @@ async function denyClaimed(env, code) {
   return null;
 }
 
-export async function onRequestOptions() { return new Response(null, { status: 204, headers: CORS }); }
+export async function onRequestOptions() {
+  return new Response(null, { status: 204, headers: CORS });
+}
 
 export async function onRequestHead({ params, env }) {
   const code = String(params.code || '').toLowerCase();
@@ -40,11 +46,24 @@ export async function onRequestGet({ params, env }) {
   if (denied) return denied;
   if (env.IMAGES) {
     const obj = await env.IMAGES.get(r2key(code, id));
-    if (obj) return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS } });
+    if (obj)
+      return new Response(obj.body, {
+        headers: {
+          'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          ...CORS,
+        },
+      });
   }
   const { value, metadata } = await env.SYNC_KV.getWithMetadata(kvkey(code, id), { type: 'arrayBuffer' });
   if (!value) return json({ error: 'not found' }, 404);
-  return new Response(value, { headers: { 'Content-Type': metadata?.type || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', ...CORS } });
+  return new Response(value, {
+    headers: {
+      'Content-Type': metadata?.type || 'image/jpeg',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      ...CORS,
+    },
+  });
 }
 
 export async function onRequestPut({ request, params, env }) {

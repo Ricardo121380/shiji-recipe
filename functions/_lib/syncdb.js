@@ -18,7 +18,7 @@ const kindToList = Object.fromEntries(LIST_KEYS.map(([arr, kind]) => [kind, arr]
 export function walkImageRefs(state, fn) {
   for (const r of state.recipes || []) {
     fn(r && r.image);
-    for (const s of r && r.steps || []) fn(s && s.image);
+    for (const s of (r && r.steps) || []) fn(s && s.image);
   }
   for (const d of state.dining || []) fn(d && d.image);
 }
@@ -87,7 +87,11 @@ export function assembleState(records, docs) {
     const arrKey = kindToList[rec.kind];
     if (!arrKey) continue;
     let item;
-    try { item = JSON.parse(rec.body) } catch { continue }
+    try {
+      item = JSON.parse(rec.body);
+    } catch {
+      continue;
+    }
     (buckets[arrKey] ||= []).push({ pos: Number(rec.pos) || 0, item });
   }
   for (const arrKey of Object.keys(buckets)) {
@@ -96,7 +100,11 @@ export function assembleState(records, docs) {
   }
   for (const doc of docs || []) {
     let val;
-    try { val = JSON.parse(doc.body) } catch { continue }
+    try {
+      val = JSON.parse(doc.body);
+    } catch {
+      continue;
+    }
     if (doc.key === '_rest' && val && typeof val === 'object' && !Array.isArray(val)) Object.assign(state, val);
     else state[doc.key] = val;
   }
@@ -134,12 +142,17 @@ function insertStmts(db, table, columns, rows, bindRow) {
 }
 
 export async function d1Meta(db, code) {
-  const row = await db.prepare(
-    'SELECT updated_at, version, recipes, dining, images, image_ids FROM snapshots WHERE code = ?'
-  ).bind(code).first();
+  const row = await db
+    .prepare('SELECT updated_at, version, recipes, dining, images, image_ids FROM snapshots WHERE code = ?')
+    .bind(code)
+    .first();
   if (!row) return null;
   let imageIds = [];
-  try { imageIds = JSON.parse(row.image_ids || '[]') } catch { imageIds = [] }
+  try {
+    imageIds = JSON.parse(row.image_ids || '[]');
+  } catch {
+    imageIds = [];
+  }
   if (!Array.isArray(imageIds)) imageIds = [];
   return {
     empty: false,
@@ -170,8 +183,9 @@ export async function d1Save(db, code, state, imageIds, updatedAt) {
   const stmts = [
     db.prepare('DELETE FROM records WHERE code = ?').bind(code),
     db.prepare('DELETE FROM docs WHERE code = ?').bind(code),
-    db.prepare(
-      `INSERT INTO snapshots (code, updated_at, version, recipes, dining, images, image_ids)
+    db
+      .prepare(
+        `INSERT INTO snapshots (code, updated_at, version, recipes, dining, images, image_ids)
        VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(code) DO UPDATE SET
          updated_at = excluded.updated_at,
@@ -179,13 +193,20 @@ export async function d1Save(db, code, state, imageIds, updatedAt) {
          recipes = excluded.recipes,
          dining = excluded.dining,
          images = excluded.images,
-         image_ids = excluded.image_ids`
-    ).bind(code, updatedAt, SYNC_VERSION, recipes, dining, (imageIds || []).length, idsJson),
+         image_ids = excluded.image_ids`,
+      )
+      .bind(code, updatedAt, SYNC_VERSION, recipes, dining, (imageIds || []).length, idsJson),
   ];
-  stmts.push(...insertStmts(db, 'records', ['code', 'kind', 'id', 'pos', 'body'], records,
-    rec => [code, rec.kind, rec.id, rec.pos, rec.body]));
-  stmts.push(...insertStmts(db, 'docs', ['code', 'key', 'body'], docs,
-    doc => [code, doc.key, doc.body]));
+  stmts.push(
+    ...insertStmts(db, 'records', ['code', 'kind', 'id', 'pos', 'body'], records, rec => [
+      code,
+      rec.kind,
+      rec.id,
+      rec.pos,
+      rec.body,
+    ]),
+  );
+  stmts.push(...insertStmts(db, 'docs', ['code', 'key', 'body'], docs, doc => [code, doc.key, doc.body]));
   await db.batch(stmts);
   return { recipes, dining, images: (imageIds || []).length, version: SYNC_VERSION };
 }
