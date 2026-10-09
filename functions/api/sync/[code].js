@@ -1,6 +1,10 @@
 // 饭Fun 云同步 API：D1 存记录，R2 存配图；旧 KV 快照只读回退
-import { SYNC_VERSION, extractImageIds, d1Meta, d1Load, d1Save, gcR2 } from '../../_lib/syncdb.js';
-import { isClaimedCode } from '../../_lib/auth.js';
+import { SYNC_VERSION, extractImageIds, d1Meta, d1Load, saveWithBackup } from '../../_lib/syncdb.js';
+import { isClaimedCode, clientIp, rateBlocked, rateHit } from '../../_lib/auth.js';
+
+// 防枚举：同一 IP 一小时内查询不存在的同步码超过 MISS_LIMIT 次，暂停该 IP 的同步码读取
+const MISS_LIMIT = 30;
+const MISS_TTL = 3600;
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +55,8 @@ export async function onRequestGet({ request, params, env }) {
   const denied = await denyClaimed(env, code);
   if (denied) return denied;
   const light = new URL(request.url).searchParams.get('meta') === '1';
+  const missKey = 'miss:' + clientIp(request);
+  if (await rateBlocked(env, missKey, MISS_LIMIT)) return json({ error: '查询过于频繁，请 1 小时后再试' }, 429);
 
   if (env.DB) {
     try {
@@ -67,10 +73,17 @@ export async function onRequestGet({ request, params, env }) {
     } catch {}
   }
 
-  if (light) return json(await kvMeta(env, code));
+  if (light) {
+    const meta = await kvMeta(env, code);
+    if (meta.empty) await rateHit(env, missKey, MISS_TTL);
+    return json(meta);
+  }
   const { value, metadata } = await env.SYNC_KV.getWithMetadata('sync:' + code);
   const updatedAt = metadata?.updatedAt || null;
-  if (!value) return json({ updatedAt: null, data: null, empty: true });
+  if (!value) {
+    await rateHit(env, missKey, MISS_TTL);
+    return json({ updatedAt: null, data: null, empty: true });
+  }
   return new Response(`{"updatedAt":${JSON.stringify(updatedAt)},"data":${value},"store":"kv"}`, {
     headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
   });
@@ -97,7 +110,7 @@ export async function onRequestPut({ request, params, env }) {
 
   if (env.DB) {
     try {
-      const saved = await d1Save(env.DB, code, state, imageIds, updatedAt);
+      const { saved, collected } = await saveWithBackup(env, code, state, imageIds, updatedAt);
       const meta = {
         updatedAt,
         recipes: saved.recipes,
@@ -112,10 +125,6 @@ export async function onRequestPut({ request, params, env }) {
           metadata: { updatedAt, recipes: String(saved.recipes), version: String(saved.version) },
         });
         await env.SYNC_KV.put('sync:' + code + ':meta', JSON.stringify(meta));
-      } catch {}
-      let collected = 0;
-      try {
-        collected = await gcR2(env.IMAGES, code, imageIds);
       } catch {}
       return json({ ok: true, ...meta, collected });
     } catch (e) {

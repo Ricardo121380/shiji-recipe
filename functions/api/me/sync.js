@@ -1,5 +1,5 @@
 import { CORS, json, requireUser } from '../../_lib/auth.js';
-import { SYNC_VERSION, extractImageIds, d1Meta, d1Load, d1Save, gcR2 } from '../../_lib/syncdb.js';
+import { SYNC_VERSION, extractImageIds, d1Meta, d1Load, saveWithBackup } from '../../_lib/syncdb.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: CORS });
@@ -47,7 +47,7 @@ export async function onRequestPut({ request, env }) {
   const updatedAt = new Date().toISOString();
   const imageIds = extractImageIds(state);
   try {
-    const saved = await d1Save(env.DB, code, state, imageIds, updatedAt);
+    const { saved, collected } = await saveWithBackup(env, code, state, imageIds, updatedAt);
     const meta = {
       updatedAt,
       recipes: saved.recipes,
@@ -57,10 +57,6 @@ export async function onRequestPut({ request, env }) {
       empty: false,
       store: 'd1',
     };
-    let collected = 0;
-    try {
-      collected = await gcR2(env.IMAGES, code, imageIds);
-    } catch {}
     return json({ ok: true, ...meta, collected });
   } catch (e) {
     const msg = e && e.message ? e.message : '写入云端数据库失败';

@@ -270,7 +270,9 @@ function showSync(refresh = true) {
     }
     syncPanel = 'home';
     dlg.close();
-    toast('同步码已绑定');
+    toast(
+      sync.getCode().length < 12 ? '同步码已绑定。码较短容易被猜到，建议改用生成的随机码或升级为账号' : '同步码已绑定',
+    );
     sync.afterBind().then(() => {
       renderApp();
       showSync(false);

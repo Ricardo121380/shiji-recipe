@@ -79,7 +79,7 @@ export const setPaused = v => {
   persist();
 };
 export const generateCode = () =>
-  'fanfun-' + [...crypto.getRandomValues(new Uint8Array(4))].map(b => b.toString(16).padStart(2, '0')).join('');
+  'fanfun-' + [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join('');
 export function markDirty() {
   if (!isBound() || isPaused()) return;
   setDirty(true);

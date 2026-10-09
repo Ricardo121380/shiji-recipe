@@ -38,6 +38,7 @@ export async function onRequestPost({ request, env }) {
   let code = accountCode(username);
   if (legacy) {
     if (!validCode(legacy)) return json({ error: '同步码格式不正确' }, 400);
+    if (legacy.startsWith('acct-')) return json({ error: '该同步码不能用于升级账号' }, 400);
     const taken = await env.DB.prepare('SELECT username FROM users WHERE code = ?').bind(legacy).first();
     if (taken) return json({ error: '该同步码已绑定其他账号' }, 409);
     code = legacy;

@@ -175,8 +175,8 @@ export async function d1Load(db, code) {
   return { meta, state, imageIds: meta.imageIds };
 }
 
-export async function d1Save(db, code, state, imageIds, updatedAt) {
-  const { records, docs } = assertStoreable(state);
+export async function d1Save(db, code, state, imageIds, updatedAt, prepared = assertStoreable(state)) {
+  const { records, docs } = prepared;
   const recipes = Array.isArray(state.recipes) ? state.recipes.length : 0;
   const dining = Array.isArray(state.dining) ? state.dining.length : 0;
   const idsJson = JSON.stringify(imageIds || []);
@@ -230,4 +230,96 @@ export async function gcR2(bucket, code, keep) {
     await Promise.all(part.map(key => bucket.delete(key)));
   }
   return toDelete.length;
+}
+
+// —— 云端版本备份（R2）——
+// 每次覆盖前把云端当前版本存到 R2 `_backup/<code>/<时间>.json`（可直接用「导入备份」恢复），
+// 同名 `.ids` 记录它引用的配图；配图 GC 会保留所有在保留期内备份仍引用的图片。
+// 保留：最近 BACKUP_KEEP_LATEST 份 + 最近 BACKUP_KEEP_DAYS 天里每天最新一份。
+export const BACKUP_KEEP_LATEST = 10;
+export const BACKUP_KEEP_DAYS = 30;
+export const backupPrefix = code => `_backup/${code}/`;
+const stampOf = iso => String(iso).replace(/[:.]/g, '-');
+
+export async function backupCurrent(db, bucket, code) {
+  if (!bucket) return null;
+  const loaded = await d1Load(db, code);
+  if (!loaded) return null;
+  const at = loaded.meta.updatedAt || new Date().toISOString();
+  const base = backupPrefix(code) + stampOf(at);
+  const ids = unionImageIds(loaded.state, loaded.imageIds);
+  const type = { httpMetadata: { contentType: 'application/json' } };
+  // 先写 .ids：即使 .json 写失败，GC 也不会误删这一版引用的配图
+  await bucket.put(base + '.ids', JSON.stringify(ids), type);
+  await bucket.put(
+    base + '.json',
+    JSON.stringify({ version: loaded.meta.version, backupOf: at, state: loaded.state, imageIds: ids }),
+    type,
+  );
+  return base;
+}
+
+export async function listBackups(bucket, code) {
+  if (!bucket) return [];
+  const prefix = backupPrefix(code);
+  const bases = new Set();
+  let cursor;
+  do {
+    const listed = await bucket.list({ prefix, cursor, limit: 1000 });
+    for (const obj of listed.objects || []) bases.add(obj.key.replace(/\.(json|ids)$/, ''));
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+  return [...bases].sort().reverse();
+}
+
+export function backupsToKeep(bases, prefix, nowIso) {
+  const cutoff = new Date(Date.parse(nowIso) - BACKUP_KEEP_DAYS * 86400000).toISOString().slice(0, 10);
+  const keep = new Set(bases.slice(0, BACKUP_KEEP_LATEST));
+  const days = new Set();
+  for (const b of bases) {
+    const day = b.slice(prefix.length, prefix.length + 10);
+    if (day < cutoff || days.has(day)) continue;
+    days.add(day);
+    keep.add(b);
+  }
+  return bases.filter(b => keep.has(b));
+}
+
+export async function pruneBackups(bucket, code, nowIso) {
+  if (!bucket) return [];
+  const bases = await listBackups(bucket, code);
+  const kept = backupsToKeep(bases, backupPrefix(code), nowIso);
+  const keptSet = new Set(kept);
+  const drop = bases.filter(b => !keptSet.has(b)).flatMap(b => [b + '.json', b + '.ids']);
+  for (let i = 0; i < drop.length; i += 100) await Promise.all(drop.slice(i, i + 100).map(k => bucket.delete(k)));
+  return kept;
+}
+
+// 读取保留中的备份所引用的配图；任何一份读不到就抛错，让调用方跳过 GC（宁可多留，不可误删）
+export async function backupImageIds(bucket, bases) {
+  const ids = new Set();
+  for (const b of bases) {
+    const obj = await bucket.get(b + '.ids');
+    if (!obj) throw new Error('backup ids missing: ' + b);
+    for (const id of JSON.parse(await obj.text())) ids.add(id);
+  }
+  return [...ids];
+}
+
+// 覆盖云端：先备份上一版（失败则不覆盖），再写 D1，最后清理过期备份与无人引用的配图
+export async function saveWithBackup(env, code, state, imageIds, updatedAt) {
+  const prepared = assertStoreable(state);
+  try {
+    await backupCurrent(env.DB, env.IMAGES, code);
+  } catch {
+    throw new Error('云端备份上一版失败，为保护数据本次未覆盖云端，请稍后重试');
+  }
+  const saved = await d1Save(env.DB, code, state, imageIds, updatedAt, prepared);
+  let collected = 0;
+  try {
+    const kept = await pruneBackups(env.IMAGES, code, updatedAt);
+    const fromBackups = await backupImageIds(env.IMAGES, kept);
+    collected = await gcR2(env.IMAGES, code, [...imageIds, ...fromBackups]);
+  } catch {}
+  return { saved, collected };
 }

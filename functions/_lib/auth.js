@@ -64,6 +64,18 @@ export async function rateLimit(env, key, limit, ttl) {
   return true;
 }
 
+// 只读检查是否已超限（不写 KV）；配合 rateHit 只给「失败」计数，正常访问不消耗 KV 写额度
+export async function rateBlocked(env, key, limit) {
+  if (!env.SYNC_KV) return false;
+  return Number((await env.SYNC_KV.get('rl:' + key)) || 0) >= limit;
+}
+export async function rateHit(env, key, ttl) {
+  if (!env.SYNC_KV) return;
+  const k = 'rl:' + key;
+  const n = Number((await env.SYNC_KV.get(k)) || 0);
+  await env.SYNC_KV.put(k, String(n + 1), { expirationTtl: ttl });
+}
+
 export async function createSession(env, username) {
   const token = randomHex(32);
   const now = new Date();
