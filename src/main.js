@@ -7,6 +7,7 @@ import {
   daysUntil,
   onChange,
   persist,
+  replaceState,
   normalizeImport,
   toast,
   prepItemsFor,
@@ -16,7 +17,7 @@ import {
   defrostNames,
 } from './store.js';
 import { ico, esc } from './ui.js';
-import { hydrateImages, cloneWithInlineImages, canonicalizeImages } from './images.js';
+import { hydrateImages, cloneWithInlineImages, canonicalizeImages, gcImages } from './images.js';
 import * as sync from './sync.js';
 window.__syncDebug = sync;
 import { render as renderRecipes, setType } from './recipes.js';
@@ -143,13 +144,13 @@ function importBackup() {
         return;
       }
       if (!window.confirm(`导入将覆盖当前的全部数据（共 ${next.recipes.length} 条菜谱记录）。确定继续？`)) return;
-      Object.keys(S).forEach(k => delete S[k]);
-      Object.assign(S, next);
-      await hydrateImages(S);
-      if (persist()) {
+      // 先把内联配图转存 IndexedDB 并写盘，成功后才替换内存；失败时本机数据保持不变
+      await hydrateImages(next, { skipGc: true });
+      if (replaceState(next)) {
+        await gcImages(S);
         toast('备份已导入');
         renderApp();
-      } else toast('导入失败：浏览器空间不足');
+      } else toast('导入失败：浏览器空间不足，本机数据保持不变');
     } catch {
       toast('读取备份失败，请确认选择的是 JSON 备份文件');
     }
@@ -171,7 +172,7 @@ function syncShell(title, body, left, right) {
   return `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">CLOUD SYNC</span><h2>${title}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}</div><div class="modal-footer">${left}<div>${right}</div></div></div>`;
 }
 function syncStats() {
-  return `<p>本机：<strong>${S.recipes.length}</strong> 道菜谱 · 云端：<strong>${sync.lastCloudRecipes()}</strong> 道菜谱<br>云端最后更新：${sync.lastCloudAt() || '尚无'}<br>本地上次同步：${sync.lastSyncAt() || '尚无'}</p><p class="muted">${esc(sync.lastPlanHint() || '正在查看云端状态…')}</p><label class="prep-line"><input type="checkbox" id="sync-pause" ${sync.isPaused() ? 'checked' : ''}> 暂停自动备份（改动只保留在本机）</label><p class="muted">请自己选择方向：<strong>上传</strong>按本机记录更新云端（本机删掉的菜谱和未再引用的配图会从云端清掉），<strong>下载</strong>用云端覆盖本机，两边不会合并。打开本面板只查看、不改数据。后台自动备份只会在云端没有更新时上传本机改动，不会自动下载覆盖本机。</p>`;
+  return `<p>本机：<strong>${S.recipes.length}</strong> 道菜谱 · 云端：<strong>${sync.lastCloudRecipes()}</strong> 道菜谱<br>云端最后更新：${sync.lastCloudAt() || '尚无'}<br>本地上次同步：${sync.lastSyncAt() || '尚无'}</p><p class="muted">${esc(sync.lastPlanHint() || '正在查看云端状态…')}</p><label class="prep-line"><input type="checkbox" id="sync-pause" ${sync.isPaused() ? 'checked' : ''}> 暂停自动备份（改动只保留在本机）</label><p class="muted">请自己选择方向：<strong>上传</strong>按本机记录更新云端（本机删掉的菜谱和未再引用的配图会从云端清掉），<strong>下载</strong>用云端覆盖本机，两边不会合并。打开本面板只查看、不改数据。后台自动备份只会在云端没有更新时上传本机改动；只有本机从未编辑过时才会自动从云端恢复，否则不会自动下载覆盖本机。</p>`;
 }
 function authTabs(cur) {
   return `<div class="type-tabs auth-tabs" role="tablist"><button type="button" data-auth="login"${cur === 'login' ? ' class="chosen"' : ''}>登录</button><button type="button" data-auth="register"${cur === 'register' ? ' class="chosen"' : ''}>注册</button></div>`;

@@ -1,5 +1,5 @@
 // 饭Fun 云同步：本机仍是整份状态；云端按记录写入 D1，配图按哈希存 R2。上传/下载由用户点选，不自动合并
-import { S, normalizeImport, persist, toast, notify } from './store.js';
+import { S, normalizeImport, persist, replaceState, isPristine, toast, notify } from './store.js';
 import {
   hydrateImages,
   liveImageIds,
@@ -9,12 +9,31 @@ import {
   canonicalizeImages,
   localImageIds,
   missingImageIds,
+  gcImages,
 } from './images.js';
 import { ico } from './ui.js';
 const AT = 'shiji-sync-at';
 const TOKEN = 'shiji-sync-token';
 const USER = 'shiji-sync-user';
-let dirty = false,
+const DIRTY = 'shiji-sync-dirty';
+function readDirty() {
+  try {
+    return localStorage.getItem(DIRTY) === '1';
+  } catch {
+    return false;
+  }
+}
+// 「本机有未上传改动」持久化到 localStorage，刷新页面后仍会自动备份
+function setDirty(v) {
+  dirty = !!v;
+  try {
+    if (dirty) localStorage.setItem(DIRTY, '1');
+    else localStorage.removeItem(DIRTY);
+  } catch {}
+}
+let dirty = readDirty(),
+  editSeq = 0,
+  toldChoice = false,
   timer = null,
   running = false,
   started = false,
@@ -50,8 +69,9 @@ export const unbind = () => {
   localStorage.removeItem(TOKEN);
   localStorage.removeItem(USER);
   localStorage.removeItem(AT);
-  dirty = false;
+  setDirty(false);
   lastPlan = null;
+  toldChoice = false;
 };
 export const isPaused = () => S.settings.autoSyncPause === true;
 export const setPaused = v => {
@@ -62,7 +82,7 @@ export const generateCode = () =>
   'fanfun-' + [...crypto.getRandomValues(new Uint8Array(4))].map(b => b.toString(16).padStart(2, '0')).join('');
 export function markDirty() {
   if (!isBound() || isPaused()) return;
-  dirty = true;
+  setDirty(true);
   clearTimeout(timer);
   timer = setTimeout(() => tick(), 4000);
 }
@@ -108,7 +128,8 @@ function setSession(username, token, keepCode) {
     localStorage.removeItem(AT);
     lastPlan = null;
     toldNewer = false;
-    dirty = false;
+    toldChoice = false;
+    setDirty(false);
   }
 }
 function syncPath(qs) {
@@ -191,9 +212,10 @@ export async function logout() {
   } catch {}
   forgetSession();
   localStorage.removeItem(AT);
-  dirty = false;
+  setDirty(false);
   lastPlan = null;
   toldNewer = false;
+  toldChoice = false;
 }
 export async function resumeSession() {
   if (!getToken()) return false;
@@ -317,37 +339,43 @@ async function remoteImageIds() {
   const full = await fetchMeta(false);
   return new Set(full.data?.imageIds || []);
 }
+// 下载：先在 next 上补齐配图并写盘，成功后才替换内存；写盘失败时本机数据保持不变
 async function doPull(meta) {
   const payload = meta.data;
   const next = normalizeImport(payload);
   if (!next) throw new Error('云端数据格式异常');
-  toast('正在写入本机…');
-  Object.keys(S).forEach(k => delete S[k]);
-  Object.assign(S, next);
   const v3 = Number(payload.version) >= 3 || Array.isArray(payload.imageIds);
   let img = { n: 0, fail: 0, needed: 0 };
-  if (v3 && !hasInlineImages(S)) {
-    img = await pullImages(payload.imageIds || [...liveImageIds(S)]);
+  let legacyInline = false;
+  if (v3 && !hasInlineImages(next)) {
+    img = await pullImages(payload.imageIds || [...liveImageIds(next)]);
   } else {
-    await hydrateImages(S, { skipCompress: true, skipGc: true });
-    await canonicalizeImages(S);
+    await hydrateImages(next, { skipCompress: true, skipGc: true });
+    legacyInline = true;
+  }
+  const still = await missingImageIds(next);
+  if (still.length) img = await pullImages(still);
+  await canonicalizeImages(next, { skipGc: true });
+  toast('正在写入本机…');
+  if (!replaceState(next)) throw new Error('本机空间不足，云端数据未能保存，本机数据保持不变');
+  localStorage.setItem(AT, meta.updatedAt);
+  setDirty(false);
+  toldNewer = false;
+  toldChoice = false;
+  await gcImages(S);
+  notify();
+  // 旧版内联配图的云端备份：转成哈希引用后回写一次，之后走增量同步
+  if (legacyInline) {
     try {
       await doPush();
     } catch {}
   }
-  const still = await missingImageIds(S);
-  if (still.length) img = await pullImages(still);
-  await canonicalizeImages(S);
-  if (!persist()) throw new Error('本机空间不足，云端数据未能保存');
-  localStorage.setItem(AT, meta.updatedAt);
-  dirty = false;
-  toldNewer = false;
-  notify();
   return img;
 }
 async function doPush() {
   const n = await canonicalizeImages(S);
   if (n) persist();
+  const seq = editSeq;
   const state = JSON.parse(JSON.stringify(S));
   const ids = [...liveImageIds(state)];
   const remote = await remoteImageIds();
@@ -377,7 +405,8 @@ async function doPush() {
     throw new Error(failMsg(r, j, r.status === 413 ? '数据过大，请减少配图后重试' : '上传失败（' + r.status + '）'));
   if (!j || !j.updatedAt) throw new Error('上传成功但云端未返回确认');
   localStorage.setItem(AT, j.updatedAt);
-  dirty = false;
+  // 上传期间又有新改动时保留标记，下一轮继续备份
+  if (editSeq === seq) setDirty(false);
   snapshot({ updatedAt: j.updatedAt, recipes: j.recipes, empty: false, version: j.version, store: j.store || 'd1' });
 }
 function fillDialog(html) {
@@ -391,7 +420,13 @@ function askOverwrite(title, body, goLabel) {
     const dlg = fillDialog(
       `<div class="editor"><div class="modal-heading"><div><span class="eyebrow">SYNC</span><h2>${title}</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">${ico('close')}</button></div><div class="editor-content">${body}<p class="muted">两边不会自动合并。不确定时先取消，去导出备份。</p></div><div class="modal-footer"><span></span><div><button type="button" class="secondary" data-close>取消</button><button type="button" class="primary" id="c-go">${goLabel}</button></div></div></div>`,
     );
-    dlg.querySelectorAll('[data-close]').forEach(b => (b.onclick = () => res(false)));
+    dlg.querySelectorAll('[data-close]').forEach(
+      b =>
+        (b.onclick = () => {
+          dlg.close();
+          res(false);
+        }),
+    );
     dlg.querySelector('#c-go').onclick = () => res(true);
   });
 }
@@ -487,40 +522,55 @@ export async function afterBind() {
     return 'error';
   }
 }
+// 自动备份的决策（纯函数）。只有本机从未改动过时才会自动从云端恢复，其余情况绝不自动覆盖本机
+export function decideTick(d, ctx) {
+  if (d.empty) return 'push';
+  if (!ctx.synced) return ctx.pristine ? 'restore' : 'needs-choice';
+  if (d.cloudNewer) return 'needs-pull';
+  if (ctx.missingImages) return 'repair';
+  if (d.localDirty && d.localN >= d.cloudN) return ctx.cloudImgs > ctx.liveImgs ? 'needs-pull' : 'push';
+  return 'latest';
+}
 export async function tick() {
   if (!isBound() || running || isPaused()) return;
   if (document.querySelector('#dialog-root')?.open) return;
   running = true;
   try {
     const d = snapshot(await fetchMeta(true));
-    if (d.empty) {
+    const action = decideTick(d, {
+      synced: !!lastSyncAt(),
+      pristine: isPristine() && !dirty,
+      missingImages: (await missingImageIds(S)).length,
+      cloudImgs: Number(d.meta.images || d.meta.imageIds?.length || 0),
+      liveImgs: liveImageIds(S).size,
+    });
+    if (action === 'push') {
       await doPush();
       return 'pushed';
     }
-    if (!lastSyncAt() && !d.empty) {
+    if (action === 'restore') {
       toast('正在从云端恢复备份…');
       const img = await doPull(await fetchMeta(false));
       toast(img && img.n ? '已从云端恢复备份，并保存 ' + img.n + ' 张配图' : '已从云端恢复备份');
       return 'pulled';
     }
-    if (d.cloudNewer) {
-      if (!toldNewer) {
+    if (action === 'needs-choice') {
+      if (!toldChoice) {
+        toldChoice = true;
+        toast('云端已有备份，本机也有数据。请打开「云同步」选择下载或上传');
+      }
+      return action;
+    }
+    if (action === 'needs-pull') {
+      if (d.cloudNewer && !toldNewer) {
         toldNewer = true;
         toast('云端有新备份，请打开「云同步」点下载到本机');
       }
-      return 'needs-pull';
+      return action;
     }
-    const miss = await missingImageIds(S);
-    if (miss.length) {
+    if (action === 'repair') {
       await repairImages();
       return 'repair';
-    }
-    const cloudImgs = Number(d.meta.images || d.meta.imageIds?.length || 0);
-    const live = [...liveImageIds(S)].length;
-    if (d.localDirty && d.localN >= d.cloudN) {
-      if (cloudImgs > live) return 'needs-pull';
-      await doPush();
-      return 'pushed';
     }
     return 'latest';
   } catch (e) {
@@ -548,6 +598,7 @@ export function start() {
   window.addEventListener('online', () => tick());
 }
 export function onLocalChange() {
-  dirty = true;
+  editSeq++;
+  setDirty(true);
   markDirty();
 }

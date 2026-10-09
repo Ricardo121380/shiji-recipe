@@ -10,7 +10,8 @@
     "deploy": "vite build && npx -y wrangler pages deploy dist --project-name=shiji-recipe --branch=main",
     "check": "node scripts/check-imports.mjs",
     "format": "prettier --write src functions scripts vite.config.js",
-    "format:check": "prettier --check src functions scripts vite.config.js"
+    "format:check": "prettier --check src functions scripts vite.config.js",
+    "test": "node --test 'tests/*.test.mjs' && node scripts/test-syncdb.mjs"
   },
   "devDependencies": {
     "prettier": "3.9.9",

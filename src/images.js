@@ -158,9 +158,9 @@ export async function storeImage(dataUrl) {
   }
 }
 
-export async function canonicalizeImages(state) {
+export async function canonicalizeImages(state, opts = {}) {
   if (!state) return 0;
-  await hydrateImages(state, { skipCompress: true });
+  await hydrateImages(state, { skipCompress: true, skipGc: !!opts.skipGc });
   let changed = 0;
   const jobs = [];
   walkImages(state, (obj, key) => jobs.push({ obj, key }));

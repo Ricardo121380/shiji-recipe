@@ -736,6 +736,19 @@ export function persist() {
     return false;
   }
 }
+// 整份替换状态：先写盘，成功后才换内存；写盘失败时内存与本机存储都保持原样
+export function replaceState(next) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    return false;
+  }
+  Object.keys(S).forEach(k => delete S[k]);
+  Object.assign(S, next);
+  return true;
+}
+// 本机从未经 update() 改动过（种子或迁移数据）
+export const isPristine = () => !S.settings?.updatedAt;
 const localChangeFns = new Set();
 export function onLocalChange(fn) {
   localChangeFns.add(fn);
