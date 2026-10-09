@@ -39,7 +39,12 @@ let dirty = readDirty(),
   started = false,
   lastPlan = null,
   toldNewer = false;
-export const apiBase = () => (location.hostname.endsWith('pages.dev') ? '' : 'https://shiji-recipe.pages.dev');
+// pages.dev 与本地联调（wrangler pages dev）走同源接口；GitHub Pages 跨域访问 pages.dev。本地开发绝不连线上数据
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+export const apiBase = () =>
+  location.hostname.endsWith('pages.dev') || LOCAL_HOSTS.includes(location.hostname)
+    ? ''
+    : 'https://shiji-recipe.pages.dev';
 export const getCode = () => localStorage.getItem('shiji-sync-code') || '';
 export const getToken = () => localStorage.getItem(TOKEN) || '';
 export const getUser = () => localStorage.getItem(USER) || '';

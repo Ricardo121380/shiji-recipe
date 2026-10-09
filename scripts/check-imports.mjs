@@ -51,7 +51,10 @@ for (const f of files) {
   for (const m of code.matchAll(/import\s*\{([^}]+)\}\s*from/g))
     for (const name of m[1].split(',')) imports.add(name.trim().split(' as ')[0].trim());
   const declared = new Set([...code.matchAll(/(?:function|const|let|var|class)\s+(\w+)/g)].map(x => x[1]));
-  for (const m of code.matchAll(/(?<![.\w'"])\b([A-Z][A-Za-z_]+|\w{5,})\b/g)) {
+  // 解构声明（含 `const { toast } = await import('./store.js')` 这类动态导入）
+  for (const m of code.matchAll(/(?:const|let|var)\s*\{([^}]+)\}\s*=/g))
+    for (const name of m[1].split(',')) declared.add(name.trim().split(':').pop().trim());
+  for (const m of code.matchAll(/(?<![.\w'"#-])\b([A-Z][A-Za-z_]+|\w{5,})\b/g)) {
     const id = m[1];
     if (imports.has(id) || declared.has(id) || GLOBALS.has(id)) continue;
     const owner = [...Object.entries(exportsOf)].find(([f2, set]) => set.has(id) && f2 !== f);
@@ -62,3 +65,4 @@ for (const f of files) {
   }
 }
 console.log(bad ? `发现 ${bad} 处疑似缺失导入` : '未发现缺失导入');
+if (bad) process.exitCode = 1;
